@@ -20,7 +20,7 @@ namespace NumberRush3D.Enemies
         [Tooltip("Bullets needed to kill this enemy (with 1 damage per bullet).")]
         [Range(1f, 60f)] public float maxHealth = 3f;
 
-        [Tooltip("World units per second. The army stands at z = -8, enemies spawn around z = +15.")]
+        [Tooltip("World units per second towards the army. Enemies spawn a fixed distance AHEAD of the army.")]
         [Range(0.5f, 12f)] public float moveSpeed = 2.4f;
 
         [Tooltip("Spatial scale multiplier applied to the enemy prefab.")]
@@ -35,6 +35,16 @@ namespace NumberRush3D.Enemies
 
         [Tooltip("Extra soldiers granted to the player when destroyed.")]
         [Range(0, 10)] public int recruitValue = 0;
+
+        [Header("Runner / Armour")]
+        [Tooltip("Incoming damage multiplier: 1 = normal, 0.45 = armoured (soaks most bullets).")]
+        [Range(0.05f, 1f)] public float damageResistance = 1f;
+
+        [Tooltip("Extra metres in front of the ram line where this enemy stops to fight. 0 = walks into the army.")]
+        [Range(0f, 12f)] public float formationDepth = 0f;
+
+        [Tooltip("Marks a boss: camera rumble, huge health bar, counted by boss levels. Use one per boss level.")]
+        public bool isBoss = false;
 
         [Header("Spawning")]
         [Tooltip("Relative chance to be picked versus the other types.")]

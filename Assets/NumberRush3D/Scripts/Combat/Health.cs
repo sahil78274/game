@@ -40,6 +40,12 @@ namespace NumberRush3D.Combat
         public bool IsAlive => Current > 0f;
         public float Normalized => maxHealth <= 0f ? 0f : Mathf.Clamp01(Current / maxHealth);
 
+        /// <summary>
+        /// Multiplier applied to incoming damage. 1 for regular units, lower for armoured ones
+        /// (a heavy keeps its health bar but soaks part of each bullet).
+        /// </summary>
+        public float DamageMultiplier { get; set; } = 1f;
+
         private void Awake()
         {
             if (tintRenderers == null || tintRenderers.Length == 0)

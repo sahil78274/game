@@ -5,11 +5,14 @@ using UnityEngine;
 namespace NumberRush3D.Enemies
 {
     /// <summary>
-    /// A red enemy: walks straight down its lane towards the army, rams the defense line when it
-    /// gets there and dies (scoring, VFX, pooling) when its <see cref="Health"/> runs out.
+    /// A red enemy. It spawns ahead of the army (relative to the player's progress), walks towards
+    /// it and rams the army's *current* position when it arrives. Dies - scoring, VFX, pooling -
+    /// when its <see cref="Health"/> runs out.
     ///
-    /// The enemy is purely a brain - damage lives in <see cref="Health"/>, movement lives here,
-    /// and everything it needs is injected by the spawner through <see cref="Spawn"/>.
+    /// Runner upgrade: the ram line is no longer a fixed world Z (the army now moves), it is
+    /// `armyZ + ramDistanceAhead`. Nothing else about the damage pipeline changed: damage lives in
+    /// <see cref="Health"/>, movement lives here, and the spawner injects everything via
+    /// <see cref="Spawn"/>.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class Enemy : MonoBehaviour
@@ -26,9 +29,10 @@ namespace NumberRush3D.Enemies
         private IBattleContext _context;
         private EnemySpawner _owner;
         private float _speed;
-        private float _stopZ;
+        private float _holdDistance = 4f;
         private float _aimHeight = 0.6f;
         private float _bobPhase;
+        private float _age;
         private bool _active;
         private bool _released;
         private Vector3 _baseBodyScale = Vector3.one;
@@ -41,6 +45,9 @@ namespace NumberRush3D.Enemies
         public Vector3 AimPoint => transform.position + Vector3.up * _aimHeight;
 
         public EnemyType Type => _type;
+
+        /// <summary>What the army earns when this enemy dies (score, coins, soldiers).</summary>
+        public EnemyType RewardType => _type;
 
         private void Awake()
         {
@@ -69,13 +76,17 @@ namespace NumberRush3D.Enemies
             _owner = owner;
             _active = true;
             _released = false;
+            _age = 0f;
             _bobPhase = Random.Range(0f, Mathf.PI * 2f);
+
+            GameSettings settings = context.Settings;
 
             transform.position = position;
             transform.localScale = Vector3.one * Mathf.Max(0.1f, type.scale);
+            transform.localRotation = Quaternion.identity;
             _aimHeight = 0.62f * type.scale;
-            _speed = Mathf.Max(0.1f, type.moveSpeed * context.Settings.enemySpeedMultiplier);
-            _stopZ = context.Settings.defenseLineZ;
+            _speed = Mathf.Max(0.1f, type.moveSpeed * settings.enemySpeedMultiplier * context.EnemySpeedMultiplier);
+            _holdDistance = settings.ramDistanceAhead + Mathf.Max(0f, type.formationDepth);
 
             if (health == null)
             {
@@ -86,7 +97,8 @@ namespace NumberRush3D.Enemies
             {
                 health.Died -= HandleDied;
                 health.Died += HandleDied;
-                health.Configure(type.maxHealth);
+                health.Configure(type.maxHealth * Mathf.Max(0.1f, context.EnemyHealthMultiplier));
+                health.DamageMultiplier = Mathf.Clamp(type.damageResistance, 0.05f, 1f);
                 health.SetBaseColor(type.color);
             }
 
@@ -102,6 +114,12 @@ namespace NumberRush3D.Enemies
             }
 
             context.Enemies.Register(this);
+
+            if (type.isBoss)
+            {
+                context.NotifyBossSpawned(this);
+                context.ShakeCamera(0.3f);
+            }
         }
 
         private void Update()
@@ -112,6 +130,7 @@ namespace NumberRush3D.Enemies
             }
 
             float deltaTime = Time.deltaTime;
+            _age += deltaTime;
             Animate(deltaTime);
 
             if (_context == null || !_context.IsPlaying)
@@ -122,7 +141,9 @@ namespace NumberRush3D.Enemies
             Vector3 position = transform.position;
             position.z -= _speed * deltaTime;
 
-            if (position.z <= _stopZ)
+            // The army is running, so "where the army is now" moves every frame.
+            float armyZ = _context.Army != null ? _context.Army.WorldZ : _context.Settings.armyZ;
+            if (position.z <= armyZ + _holdDistance)
             {
                 transform.position = position;
                 Ram();
@@ -139,7 +160,7 @@ namespace NumberRush3D.Enemies
                 return;
             }
 
-            _bobPhase += deltaTime * 6.5f;
+            _bobPhase += deltaTime * (6.5f + _speed * 0.4f);
             Vector3 offset = _baseBodyPosition;
             offset.y += Mathf.Abs(Mathf.Sin(_bobPhase)) * 0.05f;
             bodyRoot.localPosition = offset;
@@ -162,12 +183,13 @@ namespace NumberRush3D.Enemies
                     _context.Vfx.PlayBurst(AimPoint, _type != null ? _type.color : Color.red, 8, 1.2f);
                 }
 
-                _context.ShakeCamera(0.35f);
+                _context.ShakeCamera(_type != null && _type.isBoss ? 0.65f : 0.35f);
 
                 if (_context.Army != null && _type != null)
                 {
                     _context.Army.ApplyCasualties(_type.armyDamage);
                 }
+
             }
 
             Release();
@@ -184,13 +206,26 @@ namespace NumberRush3D.Enemies
             {
                 if (_context.Vfx != null)
                 {
-                    _context.Vfx.PlayBurst(AimPoint, _type != null ? _type.color : Color.red, 7, 1f);
+                    int sparks = _type != null && _type.isBoss ? 26 : 7;
+                    float power = _type != null && _type.isBoss ? 2.4f : 1f;
+                    _context.Vfx.PlayBurst(AimPoint, _type != null ? _type.color : Color.red, sparks, power);
                 }
 
-                _context.ShakeCamera(0.07f);
+                _context.ShakeCamera(_type != null && _type.isBoss ? 0.55f : 0.07f);
                 _context.ReportKill(_type);
+
+                if (_type != null && _type.isBoss)
+                {
+                    _context.NotifyBossDefeated(this);
+                }
             }
 
+            Release();
+        }
+
+        /// <summary>Recycles this enemy silently (it ran past the army or the level ended).</summary>
+        public void Despawn()
+        {
             Release();
         }
 

@@ -1,148 +1,210 @@
+using System.Collections.Generic;
+using NumberRush3D.Core;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 namespace NumberRush3D.Controls
 {
     /// <summary>
-    /// Turns horizontal swipes (or A/D and the arrow keys in the editor) into discrete lane steps.
+    /// Turns a horizontal swipe into a single lane step request, and keeps the queue short so a
+    /// fast flurry of swipes cannot send the army flying across the track.
     ///
-    /// Design notes:
-    /// * The component only produces "lane step" intents, it never moves anything itself,
-    ///   so the same input can drive a player, a bot or a replay.
-    /// * Requests are queued in a signed counter clamped to +/-2, which makes fast double swipes
-    ///   feel responsive without letting the army teleport across the whole track.
-    /// * Uses unscaled time so it keeps working during the game over slow motion.
+    /// Works identically on device (touch) and in the editor (left mouse drag). Nothing is
+    /// sampled while the pointer is over a UI element, so tapping the HUD / pause button never
+    /// moves the army. Project input settings are untouched: every API access goes through
+    /// <see cref="PointerInputBridge"/>.
+    ///
+    /// Runner upgrade: the forward motion needs no input at all, so this component only ever
+    /// answers "left or right".
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class SwipeInput : MonoBehaviour, ILaneInputSource
     {
-        [Header("Swipe detection")]
-        [Tooltip("Minimum horizontal travel, as a fraction of screen width, to count as a swipe.")]
-        [Range(0.01f, 0.3f)] [SerializeField] private float minSwipeScreenFraction = 0.05f;
+        [Tooltip("Gameplay tuning asset. Used to clamp the pending swipe queue.")]
+        [SerializeField] private GameSettings settings;
 
-        [Tooltip("A swipe must be finished within this many seconds.")]
-        [Range(0.05f, 2f)] [SerializeField] private float maxSwipeSeconds = 0.45f;
+        [Tooltip("Horizontal travel in pixels before a drag counts as a swipe.")]
+        [SerializeField] private float minSwipeDistance = 40f;
 
-        [Tooltip("Minimum time between two accepted lane changes.")]
-        [Range(0.02f, 0.5f)] [SerializeField] private float stepCooldown = 0.09f;
+        [Tooltip("Maximum time in seconds between press and release for a drag to count as a swipe.")]
+        [SerializeField] private float maxSwipeDuration = 0.6f;
 
-        [Tooltip("When enabled, holding and dragging across the screen emits a step every time the finger crosses the threshold. When disabled only a completed swipe counts (recommended).")]
-        [SerializeField] private bool continuousDrag = false;
+        [Tooltip("Seconds after which an unconsumed swipe request expires.")]
+        [SerializeField] private float requestTimeout = 0.5f;
 
-        [Header("Editor convenience")]
-        [Tooltip("A / Left arrow and D / Right arrow also change lane. Harmless on device.")]
-        [SerializeField] private bool keyboardFallback = true;
+        [Tooltip("Editor convenience: A/D or arrow keys also change lane.")]
+        [SerializeField] private bool enableKeyboardTesting = true;
 
+        [Tooltip("Swipes that start on a UI element are ignored. Keep this on for touch devices.")]
+        [SerializeField] private bool ignorePointerOverUi = true;
+
+        [Tooltip("Camera used for UI raycasts. Leave empty: the EventSystem camera or Camera.main is used.")]
+        [SerializeField] private Camera uiRaycastCamera;
+
+        private readonly List<RaycastResult> _raycastResults = new List<RaycastResult>(8);
+        private PointerEventData _eventData;
         private Vector2 _pressPosition;
-        private Vector2 _dragAnchor;
         private float _pressTime;
-        private float _lastStepTime = -10f;
         private bool _tracking;
-        private int _queuedSteps;
-        private float _thresholdPixels;
-
-        /// <summary>Number of lane changes waiting to be consumed (signed).</summary>
-        public int QueuedSteps => _queuedSteps;
-
-        /// <summary>Raised every time a lane change is accepted. Optional, the army polls instead.</summary>
-        public event System.Action<int> LaneStepAccepted;
+        private int _pendingAxis;
+        private float _pendingAxisTime;
+        private bool _interactionEnabled = true;
 
         private void Awake()
         {
-            RecalculateThreshold();
+            if (settings == null)
+            {
+                settings = Resources.Load<GameSettings>("GameSettings");
+            }
+        }
+
+        /// <summary>
+        /// Gate for the gameplay input while a menu / pause panel is open.
+        /// Disabling this never touches global input settings, only this component.
+        /// </summary>
+        public void SetInteractionEnabled(bool enabled)
+        {
+            _interactionEnabled = enabled;
+
+            if (!enabled)
+            {
+                _tracking = false;
+                _pendingAxis = 0;
+            }
+        }
+
+        /// <summary>Clears any queued request, e.g. on restart.</summary>
+        public void ResetRequests()
+        {
+            _tracking = false;
+            _pendingAxis = 0;
         }
 
         private void Update()
         {
-            if (Screen.width != _lastScreenWidth)
+            if (settings == null)
             {
-                RecalculateThreshold();
+                return;
             }
 
-            PointerInputBridge.PointerFrame pointer = PointerInputBridge.ReadPointer();
-            float now = Time.unscaledTime;
-
-            if (pointer.PressedThisFrame)
+            if (!_interactionEnabled)
             {
-                _tracking = true;
-                _pressPosition = pointer.Position;
-                _dragAnchor = pointer.Position;
-                _pressTime = now;
+                ResetRequests();
+                return;
             }
 
-            if (_tracking && continuousDrag && pointer.Held)
+            PointerInputBridge.PointerFrame frame = PointerInputBridge.ReadPointer();
+
+            if (frame.PressedThisFrame)
             {
-                float dragDelta = pointer.Position.x - _dragAnchor.x;
-                if (Mathf.Abs(dragDelta) >= _thresholdPixels && now - _lastStepTime >= stepCooldown)
+                if (!IsPointerOverUi(frame))
                 {
-                    EnqueueStep(dragDelta > 0f ? 1 : -1, now);
-                    _dragAnchor = pointer.Position;
+                    _tracking = true;
+                    _pressPosition = frame.Position;
+                    _pressTime = Time.unscaledTime;
                 }
             }
 
-            if (_tracking && pointer.ReleasedThisFrame)
+            if (frame.ReleasedThisFrame && _tracking)
             {
                 _tracking = false;
 
-                if (!continuousDrag)
-                {
-                    Vector2 delta = pointer.Position - _pressPosition;
-                    bool isHorizontal = Mathf.Abs(delta.x) >= _thresholdPixels &&
-                                        Mathf.Abs(delta.x) > Mathf.Abs(delta.y) * 1.2f;
-                    bool isQuick = now - _pressTime <= maxSwipeSeconds;
+                float duration = Time.unscaledTime - _pressTime;
+                float deltaX = frame.Position.x - _pressPosition.x;
+                float deltaY = frame.Position.y - _pressPosition.y;
 
-                    if (isHorizontal && isQuick && now - _lastStepTime >= stepCooldown)
-                    {
-                        EnqueueStep(delta.x > 0f ? 1 : -1, now);
-                    }
+                if (duration <= maxSwipeDuration &&
+                    Mathf.Abs(deltaX) >= minSwipeDistance &&
+                    Mathf.Abs(deltaX) > Mathf.Abs(deltaY) * 0.8f)
+                {
+                    RequestLane(deltaX > 0f ? 1 : -1);
                 }
             }
 
-            if (!pointer.Held && !pointer.ReleasedThisFrame)
+            if (_tracking && Time.unscaledTime - _pressTime > maxSwipeDuration)
             {
+                // Held fingers are not swipes; stop tracking so a long press never commits late.
                 _tracking = false;
             }
 
-            if (keyboardFallback)
+            if (enableKeyboardTesting)
             {
-                int axis = PointerInputBridge.ReadKeyboardLaneAxis();
-                if (axis != 0 && now - _lastStepTime >= stepCooldown)
+                int keyboardAxis = PointerInputBridge.ReadKeyboardLaneAxis();
+                if (keyboardAxis != 0)
                 {
-                    EnqueueStep(axis, now);
+                    RequestLane(keyboardAxis);
                 }
             }
+
+            if (_pendingAxis != 0 && Time.unscaledTime - _pendingAxisTime > requestTimeout)
+            {
+                _pendingAxis = 0;
+            }
+        }
+
+        /// <summary>Queues one lane step. Extra requests within <see cref="requestTimeout"/> are ignored.</summary>
+        public void RequestLane(int direction)
+        {
+            direction = direction < 0 ? -1 : 1;
+
+            if (!_interactionEnabled)
+            {
+                return;
+            }
+
+            if (_pendingAxis != 0)
+            {
+                // Keep the queue at one step: a long drag should not skip lanes.
+                return;
+            }
+
+            _pendingAxis = direction;
+            _pendingAxisTime = Time.unscaledTime;
         }
 
         public bool TryConsumeLaneStep(out int direction)
         {
-            if (_queuedSteps == 0)
+            if (_pendingAxis == 0)
             {
                 direction = 0;
                 return false;
             }
 
-            direction = _queuedSteps > 0 ? 1 : -1;
-            _queuedSteps -= direction;
+            direction = _pendingAxis;
+            _pendingAxis = 0;
             return true;
         }
 
-        private void EnqueueStep(int direction, float now)
+        private bool IsPointerOverUi(PointerInputBridge.PointerFrame frame)
         {
-            if (direction == 0)
+            if (!ignorePointerOverUi)
             {
-                return;
+                return false;
             }
 
-            _queuedSteps = Mathf.Clamp(_queuedSteps + direction, -2, 2);
-            _lastStepTime = now;
-            LaneStepAccepted?.Invoke(direction);
-        }
+            EventSystem eventSystem = EventSystem.current;
+            if (eventSystem == null)
+            {
+                return false;
+            }
 
-        private int _lastScreenWidth;
+            if (frame.IsTouch)
+            {
+                // Multi-touch device: fingers resting on the HUD must not swipe the army.
+                return eventSystem.IsPointerOverGameObject(0);
+            }
 
-        private void RecalculateThreshold()
-        {
-            _lastScreenWidth = Mathf.Max(1, Screen.width);
-            _thresholdPixels = Mathf.Max(24f, _lastScreenWidth * minSwipeScreenFraction);
+            if (_eventData == null)
+            {
+                _eventData = new PointerEventData(eventSystem);
+            }
+
+            _eventData.position = frame.Position;
+            _eventData.pressEventCamera = uiRaycastCamera != null ? uiRaycastCamera : Camera.main;
+            _raycastResults.Clear();
+
+            eventSystem.RaycastAll(_eventData, _raycastResults);
+            return _raycastResults.Count > 0;
         }
     }
 }
