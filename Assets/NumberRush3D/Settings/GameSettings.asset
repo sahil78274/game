@@ -1,0 +1,64 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e62a5f807d9923b4d8176f368c11eb40, type: 3}
+  m_Name: GameSettings
+  m_EditorClassIdentifier: Assembly-CSharp::NumberRush3D.Core.GameSettings
+  laneCount: 5
+  laneWidth: 2.8
+  armyZ: -8
+  defenseLineZ: -2.5
+  spawnZ: 15
+  startingSoldiers: 10
+  maxSoldiers: 60
+  soldierSpacing: 0.46
+  soldierRowSpacing: 0.52
+  maxFormationColumns: 7
+  laneMoveSmoothTime: 0.13
+  formationLerpSpeed: 14
+  shotsPerSecond: 0.9
+  bulletDamage: 1
+  bulletSpeed: 42
+  bulletRadius: 0.12
+  bulletMaxLifetime: 1.6
+  targetSearchRange: 45
+  targetRefreshInterval: 0.22
+  aimSpreadDegrees: 1.4
+  enemyLayerName: Enemy
+  enemySpeedMultiplier: 1
+  spawnStartInterval: 1.35
+  spawnMinInterval: 0.34
+  difficultyRampSeconds: 95
+  spawnBurstMin: 1
+  spawnBurstMax: 3
+  maxConcurrentEnemies: 26
+  spawnJitterZ: 2.5
+  spawnJitterX: 0.35
+  killsPerRecruit: 8
+  cameraPitch: 42
+  cameraFieldOfView: 45
+  cameraHeight: 15
+  cameraBottomPadding: 2.5
+  cameraTrackMargin: 1.12
+  cameraLateralFollow: 0.32
+  cameraFollowSmoothTime: 0.22
+  shakeDecay: 7
+  maxShakeOffset: 0.35
+  targetFrameRate: 60
+  maxBulletsInFlight: 220
+  playerColor: {r: 0.16, g: 0.45, b: 0.95, a: 1}
+  playerAccentColor: {r: 0.62, g: 0.82, b: 1, a: 1}
+  enemyColor: {r: 0.91, g: 0.19, b: 0.23, a: 1}
+  bulletColor: {r: 1, g: 0.87, b: 0.3, a: 1}
+  groundColor: {r: 0.09, g: 0.11, b: 0.17, a: 1}
+  laneColor: {r: 0.15, g: 0.19, b: 0.28, a: 1}
+  skyColor: {r: 0.035, g: 0.045, b: 0.08, a: 1}
+  railColor: {r: 0.22, g: 0.28, b: 0.42, a: 1}

@@ -40,9 +40,8 @@ namespace NumberRush3D.Core
         [Range(1f, 40f)] public float formationLerpSpeed = 14f;
 
         [Header("Shooting")]
-        [Tooltip("Shots per second fired by a single soldier.")]
         [Tooltip("Shots per second fired by a single soldier. 0.9 means one bullet every ~1.1 s.")]
-        [Range(0.2f, 5f)] public float shotsPerSecond = 0.9f;
+[Range(0.2f, 5f)] public float shotsPerSecond = 0.9f;
         [Tooltip("Damage per bullet.")]
         [Range(0.1f, 50f)] public float bulletDamage = 1f;
         [Range(10f, 120f)] public float bulletSpeed = 42f;
