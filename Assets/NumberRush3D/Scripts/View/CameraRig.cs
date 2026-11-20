@@ -5,9 +5,11 @@ namespace NumberRush3D.View
 {
     /// <summary>
     /// Owns the gameplay camera: aspect aware framing (see <see cref="CameraFraming"/>),
-    /// a soft lateral follow so the crowd stays centred, and screen shake driven by
+    /// a soft lateral follow, forward follow for the runner and screen shake driven by
     /// <see cref="IBattleContext.ShakeCamera"/>.
     ///
+    /// Runner upgrade: the camera now tracks the army's Z exactly (so the army never drifts on
+    /// screen) and only damps the lateral axis, which is what a runner needs.
     /// Everything important happens in LateUpdate after the army has moved.
     /// </summary>
     [DisallowMultipleComponent]
@@ -17,17 +19,21 @@ namespace NumberRush3D.View
         [Tooltip("Camera to drive. Defaults to the Camera on this GameObject.")]
         [SerializeField] private Camera targetCamera;
 
-        private Quaternion _baseRotation = Quaternion.identity;
-
         private GameSettings _settings;
         private Transform _follow;
-        private Vector3 _basePosition;
+        private Vector3 _followOffset;
+        private Vector3 _fallbackPosition;
         private Vector3 _shakeOffset;
         private Quaternion _shakeRotation = Quaternion.identity;
+        private Quaternion _baseRotation = Quaternion.identity;
         private float _shakeAmount;
         private float _lateralVelocity;
+        private bool _bossRumble;
         private int _lastScreenWidth = -1;
         private int _lastScreenHeight = -1;
+
+        /// <summary>True while a boss encounter is running (subtle continuous camera rumble).</summary>
+        public bool BossRumbleActive => _bossRumble;
 
         public void Initialize(GameSettings settings, Transform follow)
         {
@@ -45,7 +51,7 @@ namespace NumberRush3D.View
                 targetCamera.clearFlags = CameraClearFlags.SolidColor;
                 targetCamera.backgroundColor = settings.skyColor;
                 targetCamera.nearClipPlane = 0.3f;
-                targetCamera.farClipPlane = 200f;
+                targetCamera.farClipPlane = 250f;
             }
 
             ApplyFraming();
@@ -55,6 +61,12 @@ namespace NumberRush3D.View
         public void Shake(float intensity)
         {
             _shakeAmount = Mathf.Clamp(_shakeAmount + Mathf.Max(0f, intensity), 0f, 1.5f);
+        }
+
+        /// <summary>Subtle continuous rumble used during boss encounters.</summary>
+        public void SetBossRumble(bool active)
+        {
+            _bossRumble = active;
         }
 
         private void LateUpdate()
@@ -71,6 +83,11 @@ namespace NumberRush3D.View
 
             float deltaTime = Time.unscaledDeltaTime;
 
+            if (_bossRumble)
+            {
+                Shake(0.008f);
+            }
+
             // Lateral follow, so a swiping army never drifts out of frame.
             float targetX = _follow != null ? _follow.position.x * _settings.cameraLateralFollow : 0f;
             float x = Mathf.SmoothDamp(
@@ -80,6 +97,10 @@ namespace NumberRush3D.View
                 Mathf.Max(0.01f, _settings.cameraFollowSmoothTime),
                 Mathf.Infinity,
                 deltaTime);
+
+            // Forward follow is exact: any lag here would make the army slide up/down the screen.
+            float z = _follow != null ? _follow.position.z + _followOffset.z : _fallbackPosition.z;
+            float y = _fallbackPosition.y;
 
             // Shake decays in real time so it still animates while the game is frozen.
             if (_shakeAmount > 0f)
@@ -95,7 +116,7 @@ namespace NumberRush3D.View
             }
 
             transform.SetPositionAndRotation(
-                new Vector3(_basePosition.x + x + _shakeOffset.x, _basePosition.y + _shakeOffset.y, _basePosition.z + _shakeOffset.z),
+                new Vector3(x + _shakeOffset.x, y + _shakeOffset.y, z + _shakeOffset.z),
                 _baseRotation * _shakeRotation);
         }
 
@@ -108,10 +129,21 @@ namespace NumberRush3D.View
                 ? targetCamera.aspect
                 : Mathf.Max(1, Screen.width) / (float)Mathf.Max(1, Screen.height);
 
-            _basePosition = CameraFraming.SolvePosition(_settings, aspect);
+            _fallbackPosition = CameraFraming.SolvePosition(_settings, aspect);
+            _followOffset = new Vector3(0f, _fallbackPosition.y, _fallbackPosition.z - _settings.armyZ);
             _baseRotation = CameraFraming.SolveRotation(_settings.cameraPitch);
 
-            transform.SetPositionAndRotation(_basePosition, _baseRotation);
+            Vector3 position = _follow != null
+                ? new Vector3(0f, _followOffset.y, _follow.position.z + _followOffset.z)
+                : _fallbackPosition;
+
+            transform.SetPositionAndRotation(position, _baseRotation);
+
+            if (targetCamera != null)
+            {
+                targetCamera.fieldOfView = _settings.cameraFieldOfView;
+                targetCamera.backgroundColor = _settings.skyColor;
+            }
         }
     }
 }

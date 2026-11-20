@@ -7,11 +7,13 @@ using UnityEngine;
 namespace NumberRush3D.Army
 {
     /// <summary>
-    /// The blue crowd: lane movement, formation layout, size bookkeeping (recruits / casualties)
-    /// and the pool of <see cref="SoldierUnit"/> instances.
+    /// The blue crowd: continuous forward running, lane movement, formation layout,
+    /// size bookkeeping (recruits / casualties / gates) and the pool of <see cref="SoldierUnit"/> instances.
     ///
-    /// The controller never talks to enemies or bullets directly - soldiers pull their own targets
-    /// and the army asks the <see cref="IBattleContext"/> for a camera shake.
+    /// Runner upgrade: the army now integrates its own forward motion every frame
+    /// (<see cref="ForwardSpeed"/>, default 7 u/s from <see cref="GameSettings.runnerStartSpeed"/>)
+    /// and reports <see cref="DistanceTravelled"/> so gates, the track and the level manager can all
+    /// be driven from a single source of truth.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class ArmyController : MonoBehaviour
@@ -37,6 +39,9 @@ namespace NumberRush3D.Army
         private float _laneVelocity;
         private bool _slotsDirty = true;
         private bool _running;
+        private float _startZ;
+        private float _forwardSpeed;
+        private float _distanceTravelled;
 
         /// <summary>Number of living soldiers.</summary>
         public int SoldierCount => _soldiers.Count;
@@ -46,6 +51,18 @@ namespace NumberRush3D.Army
 
         /// <summary>Current world X of the army.</summary>
         public float WorldX => transform.position.x;
+
+        /// <summary>Current world Z of the army. Enemies, gates and the camera all read this.</summary>
+        public float WorldZ => transform.position.z;
+
+        /// <summary>Meters travelled since the level started.</summary>
+        public float DistanceTravelled => _distanceTravelled;
+
+        /// <summary>Current forward speed in units per second.</summary>
+        public float ForwardSpeed => _forwardSpeed;
+
+        /// <summary>Configured maximum army size (from GameSettings).</summary>
+        public int MaxSoldiers => _settings != null ? _settings.maxSoldiers : 0;
 
         /// <summary>(current, max)</summary>
         public event Action<int, int> ArmyCountChanged;
@@ -93,12 +110,17 @@ namespace NumberRush3D.Army
             }
 
             _targetLane = _settings.CenterLane;
-            transform.position = new Vector3(_settings.LaneX(_targetLane), transform.position.y, _settings.armyZ);
+            _startZ = _settings.armyZ;
+            _distanceTravelled = 0f;
+            _forwardSpeed = Mathf.Max(0f, _settings.runnerStartSpeed);
+            transform.position = new Vector3(_settings.LaneX(_targetLane), transform.position.y, _startZ);
 
             _soldiers.Clear();
             _slotsDirty = true;
-            AddSoldiers(_settings.startingSoldiers);
+            AddSoldiers(_settings.startingSoldiers, false);
             _running = true;
+
+            ArmyCountChanged?.Invoke(_soldiers.Count, _settings.maxSoldiers);
         }
 
         private SoldierUnit CreateSoldier()
@@ -116,21 +138,49 @@ namespace NumberRush3D.Army
                 return;
             }
 
-            if (_context.IsPlaying && _input != null && _input.TryConsumeLaneStep(out int direction))
+            if (_context.IsPlaying)
             {
-                _targetLane = _settings.ClampLane(_targetLane + direction);
+                if (_input != null && _input.TryConsumeLaneStep(out int direction))
+                {
+                    _targetLane = _settings.ClampLane(_targetLane + direction);
+                }
+
+                MoveForward(Time.deltaTime);
             }
 
-            MoveArmy();
+            MoveToLane(Time.deltaTime);
             UpdateFormation(Time.deltaTime);
         }
 
-        private void MoveArmy()
+        /// <summary>Automatic forward motion - the player never controls this.</summary>
+        private void MoveForward(float deltaTime)
+        {
+            float speed = _forwardSpeed;
+            if (speed <= 0f)
+            {
+                return;
+            }
+
+            Vector3 position = transform.position;
+            float step = speed * deltaTime;
+            position.z += step;
+            transform.position = position;
+            _distanceTravelled += step;
+        }
+
+        private void MoveToLane(float deltaTime)
         {
             float targetX = _settings.LaneX(_targetLane);
             Vector3 position = transform.position;
-            float x = Mathf.SmoothDamp(position.x, targetX, ref _laneVelocity, _settings.laneMoveSmoothTime, Mathf.Infinity, Time.deltaTime);
-            transform.position = new Vector3(x, position.y, _settings.armyZ);
+            float x = Mathf.SmoothDamp(
+                position.x,
+                targetX,
+                ref _laneVelocity,
+                _settings.laneMoveSmoothTime,
+                Mathf.Infinity,
+                Mathf.Max(0.0001f, deltaTime));
+
+            transform.position = new Vector3(Mathf.Clamp(x, -_settings.TrackHalfWidth, _settings.TrackHalfWidth), position.y, position.z);
         }
 
         private void UpdateFormation(float deltaTime)
@@ -142,7 +192,7 @@ namespace NumberRush3D.Army
 
             RebuildSlotsIfNeeded();
 
-            float lerp = 1f - Mathf.Exp(-_settings.formationLerpSpeed * deltaTime);
+            float lerp = 1f - Mathf.Exp(-_settings.formationLerpSpeed * Mathf.Max(0.0001f, deltaTime));
             for (int i = 0; i < _soldiers.Count; i++)
             {
                 SoldierUnit soldier = _soldiers[i];
@@ -151,7 +201,6 @@ namespace NumberRush3D.Army
                     continue;
                 }
 
-                // Small per-soldier delay makes the crowd ripple instead of moving as one block.
                 int slotIndex = Mathf.Min(i, _slots.Count - 1);
                 soldier.transform.localPosition = Vector3.Lerp(
                     soldier.transform.localPosition,
@@ -176,13 +225,46 @@ namespace NumberRush3D.Army
         }
 
         // ------------------------------------------------------------------------------------
+        // Runner control (used by the level manager)
+        // ------------------------------------------------------------------------------------
+
+        /// <summary>Sets the forward speed immediately. 0 stops the army.</summary>
+        public void SetForwardSpeed(float speed)
+        {
+            _forwardSpeed = Mathf.Max(0f, speed);
+        }
+
+        /// <summary>Stops forward motion (level complete / failed).</summary>
+        public void StopRunning()
+        {
+            _forwardSpeed = 0f;
+        }
+
+        /// <summary>Teleports the army to a lane without easing. Used when a level is (re)started.</summary>
+        public void SetLane(int lane, bool immediate)
+        {
+            if (_settings == null)
+            {
+                return;
+            }
+
+            _targetLane = _settings.ClampLane(lane);
+            if (immediate)
+            {
+                _laneVelocity = 0f;
+                Vector3 position = transform.position;
+                transform.position = new Vector3(_settings.LaneX(_targetLane), position.y, position.z);
+            }
+        }
+
+        // ------------------------------------------------------------------------------------
         // Army size
         // ------------------------------------------------------------------------------------
 
         /// <summary>Adds soldiers up to <see cref="GameSettings.maxSoldiers"/>.</summary>
         public void Recruit(int amount)
         {
-            if (amount <= 0 || _pool == null)
+            if (amount <= 0 || _pool == null || _settings == null)
             {
                 return;
             }
@@ -192,7 +274,36 @@ namespace NumberRush3D.Army
                 return;
             }
 
-            AddSoldiers(amount);
+            if (AddSoldiers(amount, false) > 0)
+            {
+                ArmyCountChanged?.Invoke(_soldiers.Count, _settings.maxSoldiers);
+            }
+        }
+
+        /// <summary>
+        /// Forces the army to an exact size, clamped to [1, maxSoldiers].
+        /// Number gates use this path so a gate can never wipe the army out - only enemies can.
+        /// </summary>
+        public void SetSoldierCount(int target)
+        {
+            if (_pool == null || _settings == null)
+            {
+                return;
+            }
+
+            int clamped = Mathf.Clamp(target, 1, _settings.maxSoldiers);
+            int difference = clamped - _soldiers.Count;
+
+            if (difference > 0)
+            {
+                AddSoldiers(difference, false);
+            }
+            else if (difference < 0)
+            {
+                RemoveSoldiers(-difference, false);
+            }
+
+            ArmyCountChanged?.Invoke(_soldiers.Count, _settings.maxSoldiers);
         }
 
         /// <summary>Removes soldiers from the back of the formation. Triggers game over when the army is empty.</summary>
@@ -203,13 +314,7 @@ namespace NumberRush3D.Army
                 return;
             }
 
-            int removed = 0;
-            for (int i = 0; i < amount && _soldiers.Count > 0; i++)
-            {
-                RemoveLastSoldier();
-                removed++;
-            }
-
+            int removed = RemoveSoldiers(amount, true);
             if (removed == 0)
             {
                 return;
@@ -224,7 +329,32 @@ namespace NumberRush3D.Army
             }
         }
 
-        private void AddSoldiers(int amount)
+        /// <summary>Applies a gate operation to a soldier count. Never returns less than 1.</summary>
+        public static int ComputeGateResult(int currentSoldiers, GateKind kind, int value)
+        {
+            int count = Mathf.Max(1, currentSoldiers);
+            int amount = Mathf.Max(1, Mathf.Abs(value));
+
+            switch (kind)
+            {
+                case GateKind.Add:
+                    count += amount;
+                    break;
+                case GateKind.Subtract:
+                    count -= amount;
+                    break;
+                case GateKind.Multiply:
+                    count *= amount;
+                    break;
+                case GateKind.Divide:
+                    count /= amount;
+                    break;
+            }
+
+            return Mathf.Max(1, count);
+        }
+
+        private int AddSoldiers(int amount, bool playFx)
         {
             int added = 0;
             for (int i = 0; i < amount; i++)
@@ -248,16 +378,27 @@ namespace NumberRush3D.Army
                 added++;
             }
 
-            if (added == 0)
+            if (added > 0)
             {
-                return;
+                _slotsDirty = true;
             }
 
-            _slotsDirty = true;
-            ArmyCountChanged?.Invoke(_soldiers.Count, _settings.maxSoldiers);
+            return added;
         }
 
-        private void RemoveLastSoldier()
+        private int RemoveSoldiers(int amount, bool playFx)
+        {
+            int removed = 0;
+            for (int i = 0; i < amount && _soldiers.Count > 0; i++)
+            {
+                RemoveLastSoldier(playFx);
+                removed++;
+            }
+
+            return removed;
+        }
+
+        private void RemoveLastSoldier(bool playFx)
         {
             int lastIndex = _soldiers.Count - 1;
             SoldierUnit soldier = _soldiers[lastIndex];
@@ -268,7 +409,7 @@ namespace NumberRush3D.Army
                 return;
             }
 
-            if (_context.Vfx != null)
+            if (playFx && _context != null && _context.Vfx != null)
             {
                 _context.Vfx.PlayBurst(soldier.transform.position + Vector3.up * 0.45f, _settings.playerColor, 4, 0.75f);
             }

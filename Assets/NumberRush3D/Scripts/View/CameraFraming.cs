@@ -64,6 +64,17 @@ namespace NumberRush3D.View
             return new Vector3(0f, height, Mathf.Min(fitZ, nearFitZ));
         }
 
+        /// <summary>
+        /// Camera offset relative to the army, for the runner follow camera.
+        /// Same solve as <see cref="SolvePosition"/>, expressed as a local offset from the
+        /// army anchor so it stays correct while the army runs forward.
+        /// </summary>
+        public static Vector3 SolveFollowOffset(GameSettings settings, float aspect)
+        {
+            Vector3 absolute = SolvePosition(settings, aspect);
+            return new Vector3(0f, absolute.y, absolute.z - settings.armyZ);
+        }
+
         public static Quaternion SolveRotation(float pitchDegrees)
         {
             return Quaternion.Euler(Mathf.Clamp(pitchDegrees, 5f, 85f), 0f, 0f);

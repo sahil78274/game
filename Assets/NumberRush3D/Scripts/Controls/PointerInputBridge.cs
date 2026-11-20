@@ -25,12 +25,16 @@ namespace NumberRush3D.Controls
             public readonly bool ReleasedThisFrame;
             public readonly bool Held;
 
-            public PointerFrame(Vector2 position, bool pressed, bool released, bool held)
+            /// <summary>True when the frame comes from a real touch (used to query the UI with a finger id).</summary>
+            public readonly bool IsTouch;
+
+            public PointerFrame(Vector2 position, bool pressed, bool released, bool held, bool isTouch)
             {
                 Position = position;
                 PressedThisFrame = pressed;
                 ReleasedThisFrame = released;
                 Held = held;
+                IsTouch = isTouch;
             }
         }
 
@@ -46,7 +50,7 @@ namespace NumberRush3D.Controls
                 bool held = touch.phase == TouchPhase.Began ||
                             touch.phase == TouchPhase.Moved ||
                             touch.phase == TouchPhase.Stationary;
-                return new PointerFrame(touch.position, began, ended, held);
+                return new PointerFrame(touch.position, began, ended, held, true);
             }
 
             Vector2 mousePosition = Input.mousePosition;
@@ -54,17 +58,30 @@ namespace NumberRush3D.Controls
                 mousePosition,
                 Input.GetMouseButtonDown(0),
                 Input.GetMouseButtonUp(0),
-                Input.GetMouseButton(0));
+                Input.GetMouseButton(0),
+                false);
 #elif ENABLE_INPUT_SYSTEM
             Touchscreen touchscreen = Touchscreen.current;
-            if (touchscreen != null)
+            if (touchscreen != null && touchscreen.primaryTouch.press.isPressed)
             {
                 var primaryTouch = touchscreen.primaryTouch;
                 return new PointerFrame(
                     primaryTouch.position.ReadValue(),
                     primaryTouch.press.wasPressedThisFrame,
                     primaryTouch.press.wasReleasedThisFrame,
-                    primaryTouch.press.isPressed);
+                    primaryTouch.press.isPressed,
+                    true);
+            }
+
+            Touchscreen releasedTouchscreen = Touchscreen.current;
+            if (releasedTouchscreen != null && releasedTouchscreen.primaryTouch.press.wasReleasedThisFrame)
+            {
+                return new PointerFrame(
+                    releasedTouchscreen.primaryTouch.position.ReadValue(),
+                    false,
+                    true,
+                    false,
+                    true);
             }
 
             Mouse mouse = Mouse.current;
@@ -74,7 +91,8 @@ namespace NumberRush3D.Controls
                     mouse.position.ReadValue(),
                     mouse.leftButton.wasPressedThisFrame,
                     mouse.leftButton.wasReleasedThisFrame,
-                    mouse.leftButton.isPressed);
+                    mouse.leftButton.isPressed,
+                    false);
             }
 
             return default;
@@ -121,7 +139,7 @@ namespace NumberRush3D.Controls
 #endif
         }
 
-        /// <summary>Restart shortcut (R / Space) used while the game over panel is visible.</summary>
+        /// <summary>Restart shortcut (R / Space) used while a results panel is visible.</summary>
         public static bool ReadRestartShortcut()
         {
 #if ENABLE_LEGACY_INPUT_MANAGER
@@ -134,6 +152,24 @@ namespace NumberRush3D.Controls
             }
 
             return keyboard.rKey.wasPressedThisFrame || keyboard.spaceKey.wasPressedThisFrame || keyboard.enterKey.wasPressedThisFrame;
+#else
+            return false;
+#endif
+        }
+
+        /// <summary>Pause shortcut (Escape / P), handy while testing in the editor.</summary>
+        public static bool ReadPauseShortcut()
+        {
+#if ENABLE_LEGACY_INPUT_MANAGER
+            return Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.P);
+#elif ENABLE_INPUT_SYSTEM
+            Keyboard keyboard = Keyboard.current;
+            if (keyboard == null)
+            {
+                return false;
+            }
+
+            return keyboard.escapeKey.wasPressedThisFrame || keyboard.pKey.wasPressedThisFrame;
 #else
             return false;
 #endif
