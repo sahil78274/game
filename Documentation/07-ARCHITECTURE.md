@@ -84,6 +84,25 @@ Each system is independent within a frame; interleaving order does not matter be
 
 ---
 
+## 3b. Runner systems (track, gates, levels)
+
+| System | Owns | Talks to the rest through |
+|---|---|---|
+| `TrackManager` + `TrackSegment` | The 8-slice ring of 20 m track slices, decoration, the legacy `Environment` hiding | `IBattleContext.Army.WorldZ` (read only) |
+| `GateManager` + `NumberGate` | Gate row streaming, the 3D labels, the once-per-crossing trigger, FX/toast | `ArmyController` (`SoldierCount`, `SetSoldierCount`), `IBattleContext.ShowToast/ShakeCamera/Vfx` |
+| `LevelManager` | Level resolve, run profile publishing, completion/failure, stars, coins, screens | `IBattleContext`, `LevelLaunch`, `LevelProgressStore` |
+| `LevelDefinition` / `LevelCatalog` | Pure data: distance, scaling, enemy set, gate rows, boss, rewards | — |
+| `LevelLaunch` | The only entry point that starts a run (scene reload) | `SceneManager` |
+
+Ordering rules that matter:
+
+* `LevelManager` runs at **−110**, `GameManager` at **−100**. The level is therefore resolved before
+  `GameManager.Awake` builds the run profile (army size, enemy scaling, progress source).
+* `LevelManager` performs its *actual* start from the first `Update`, not from `Start()`, because
+  `Start()` order follows execution order and the army/spawner must be running first.
+* Campaign runs set `GameManager.SuppressResultPanel`, so `RunEnded` stays silent and the campaign
+  screens own the end of run.
+
 ## 4. Pooling strategy
 
 | Pool | Factory | Prewarm | Cap | Release trigger |

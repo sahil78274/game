@@ -52,6 +52,11 @@ namespace NumberRush3D.EditorTools
             SetField(manager, "hud", ui.hud);
             SetField(manager, "gameOverPanel", ui.gameOver);
 
+            // Runner systems, campaign screens and HUD widgets. This is the exact same routine as
+            // "Tools > NUMBER RUSH 3D > 7. Upgrade Existing Scene", so a fresh build and an upgraded
+            // scene can never drift apart.
+            UpgradeExistingScene(false);
+
             Debug.Log("[NumberRush] Scene assembled.");
         }
 

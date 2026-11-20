@@ -44,6 +44,7 @@ namespace NumberRush3D.Gates
         private float _gateZ;
         private float _minX;
         private float _maxX;
+        private bool _includeMaxEdge;
         private Vector3 _panelBaseScale;
         private Vector3 _labelBaseLocalPosition;
         private float _pulsePhase;
@@ -100,7 +101,7 @@ _postRenderers[2] = CreateBox("Beam", new Vector3(0f, 0f, 0f), new Vector3(1f, P
         }
 
         /// <summary>Positions + labels this half. Safe to call on a recycled instance.</summary>
-        public void Configure(GateChoice choice, float centerX, float width, float z, IBattleContext context, ArmyController army)
+        public void Configure(GateChoice choice, float centerX, float width, float z, IBattleContext context, ArmyController army, bool isRightHalf)
         {
             _context = context;
             _army = army;
@@ -113,6 +114,10 @@ _postRenderers[2] = CreateBox("Beam", new Vector3(0f, 0f, 0f), new Vector3(1f, P
 
             _minX = centerX - width * 0.5f;
             _maxX = centerX + width * 0.5f;
+
+            // The two halves share the centre line. Treating it as half-open on the left stops an
+            // army running exactly down the middle from applying BOTH gates on the same frame.
+            _includeMaxEdge = isRightHalf;
 
             _color = _negative
                 ? new Color(0.93f, 0.24f, 0.26f, 1f)
@@ -231,7 +236,9 @@ _postRenderers[2] = CreateBox("Beam", new Vector3(0f, 0f, 0f), new Vector3(1f, P
             if (_army.WorldZ >= _gateZ)
             {
                 float x = _army.WorldX;
-                if (x >= _minX && x <= _maxX)
+                bool inside = x >= _minX && (_includeMaxEdge ? x <= _maxX : x < _maxX);
+
+                if (inside)
                 {
                     Fire();
                 }

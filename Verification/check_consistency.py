@@ -7,6 +7,8 @@
 2. Every member accessed through the well known injected references
    (_settings, _context, context, _game, _health, _owner, _input, healthBar)
    must be declared in the corresponding type (or be a known Unity member).
+3. Editor menu items (Tools > NUMBER RUSH 3D > ...) must be unique.
+4. GameManager must implement every member of IBattleContext.
 """
 import os
 import re
@@ -103,6 +105,43 @@ def main():
                 continue
             line = src[:match.start()].count("\n") + 1
             problems.append(f"{os.path.relpath(path, ROOT)}:{line} {prefix}.{member} not found on {target_type}")
+
+    # --- 3. duplicate editor menu items -------------------------------------------------
+    menu_re = re.compile(r'MenuItem\("([^"]+)"')
+    seen_menus = {}
+    for path, src in sources.items():
+        for match in menu_re.finditer(src):
+            name = match.group(1)
+            if name in seen_menus:
+                problems.append(
+                    f"duplicate MenuItem '{name}' in {os.path.basename(path)} "
+                    f"and {seen_menus[name]}"
+                )
+            else:
+                seen_menus[name] = os.path.basename(path)
+
+    # --- 4. IBattleContext fully implemented by GameManager -----------------------------
+    interface_path = next((p for p in sources if os.path.basename(p) == "IBattleContext.cs"), None)
+    manager_path = next((p for p in sources if os.path.basename(p) == "GameManager.cs"), None)
+    if interface_path is not None and manager_path is not None:
+        interface_src = sources[interface_path]
+        manager_src = sources[manager_path]
+        # Interface members carry no access modifier, so parse them with a dedicated pattern.
+        required = set(
+            re.findall(
+                r"^[ \t]*[\w<>\[\],\.\?]+[ \t]+(\w+)[ \t]*(?:\{[ \t]*get|\()",
+                interface_src,
+                re.M,
+            )
+        ) - {"IBattleContext", "interface", "get", "set"}
+        for name in sorted(required):
+            declaration = re.compile(
+                r"\b(?:public|private|protected|internal)\b[^;\n{}]*\b"
+                + re.escape(name)
+                + r"\b\s*(?:\{|=>|\()"
+            )
+            if not declaration.search(manager_src):
+                problems.append(f"GameManager.cs does not implement IBattleContext.{name}")
 
     if problems:
         print("\n".join(problems))

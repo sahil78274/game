@@ -309,12 +309,85 @@ The HUD only subscribes to `GameManager` events (`ScoreChanged`, `ArmyChanged`, 
 | `EnemySpawner` | `Enemy` prefab, `EnemyType[]`, `Enemies` root |
 | `Enemy` | `Health`, `bodyRoot`, `WorldHealthBar` |
 | `WorldHealthBar` | `fillPivot`, `fillRenderer` |
-| `HudController` | 5 × `Text`, 1 × `RectTransform` |
+| `HudController` | 4 × `Text` (army/score/best/wave), `recruitFill`, `recruitLabel`, plus the runner widgets `coinsLabel`, `progressFill`, `toastLabel` + `toastGroup`, `pauseButton` (auto-created when empty) |
 | `GameOverPanel` | 1 × `GameObject`, 4 × `Text`, 2 × `Button` |
 | `CameraRig` | `Camera` |
+| `TrackManager` | `legacyTrack` (scene root `Environment`), `segmentRoot`, streaming distances |
+| `GateManager` | `gateRoot`, `rowSpacing`, `clusterSpacing`, `recycleDistance`, `prewarm` |
+| `LevelManager` | `game`, `catalog`, `track`, `gates`, `spawner`, `hud`, `legacyGameOverPanel`, `levelSelect`, `completePanel`, `failedPanel`, `pausePanel` |
+| `LevelSelectScreen` | `catalog`, optional `root` |
+| `LevelCompletePanel` / `LevelFailedPanel` / `PausePanel` | optional `root` (contents are built at runtime) |
 
 `CameraFraming`, `ArmyFormation`, `ObjectPool<T>`, `PointerInputBridge` and the interfaces have no inspector surface — they are pure code.
 
 ---
+
+---
+
+## 17. Runner fields added after the shooter prototype
+
+Everything below was **appended** to the existing components; no older field changed meaning.
+Defaults are shown, and all of them live in `GameSettings` unless stated otherwise.
+
+### GameSettings — Runner
+
+| Field | Default | Effect |
+|---|---|---|
+| `runnerStartSpeed` | 7 | Forward speed in m/s when a run starts |
+| `runnerEndSpeed` | 0 | Speed reached over the level (0 = keep the start speed) |
+
+### GameSettings — Infinite track
+
+| Field | Default | Effect |
+|---|---|---|
+| `trackSegmentLength` | 20 | Length of one pooled slice |
+| `trackSegmentCount` | 8 | Slices alive at once (× 20 m = 160 m of track) |
+| `trackRecycleBehind` | 30 | Slice recycled once this far behind the army (metres) |
+| `trackDecorJitter` | 0.4 | Random offset on side decoration |
+
+### GameSettings — Runner enemies / number gates
+
+| Field | Default | Effect |
+|---|---|---|
+| `enemySpawnAhead` / `enemyDespawnBehind` | 30 / 12 | Spawn point and cleanup distance relative to the army |
+| `ramDistanceAhead` | 4 | Enemy rams the army at `armyZ + 4` |
+| `gateLookAhead` / `gateSpacing` / `gateFirstDistance` | 26 / 22 / 18 | Gate streaming distances (metres) |
+| `gateExtraGates` | 1 | Extra gate rows per cluster |
+| `gateNegativeChance` | 0.55 | Chance a row offers a red gate |
+| `gateToastDuration` | 1.4 | Seconds the gate result toast stays on screen |
+
+### GameSettings — Levels & economy
+
+| Field | Default | Effect |
+|---|---|---|
+| `coinsPerKill` | 1 | Wallet coins per kill |
+| `firstLevel` | 1 | Level the campaign starts on |
+| `levelEndSlowMotionDuration` | 0.55 | Slow motion beat at the finish |
+
+### TrackManager / GateManager (inspector)
+
+| Field | Default | Effect |
+|---|---|---|
+| `legacyTrack` | — | Scene root hidden at runtime (the old ground / lanes / rails) |
+| `lookAhead` / `recycleBehind` | 70 / 30 | Track streaming window |
+| `gateRoot` | `Systems/Gates` | Parent of pooled gates |
+| `rowSpacing` / `clusterSpacing` / `recycleDistance` | 22 / 8 / 26 | Gate streaming window |
+| `prewarm` | 8 | Gates created up front |
+
+### LevelManager
+
+| Field | Default | Effect |
+|---|---|---|
+| `showLevelSelectOnBoot` | on | Open the level grid when the scene starts without a level request |
+| `buildMissingScreens` | on | Create the campaign screens at runtime if the scene has none |
+| `coinBonusPerStar` | 10 | Extra coins per earned star |
+
+### EnemyType (appended)
+
+| Field | Default | Effect |
+|---|---|---|
+| `damageResistance` | 1 | Incoming damage multiplier (0.45 = armoured) |
+| `formationDepth` | 0 | Extra metres in front of the ram line where this enemy stops |
+| `isBoss` | off | Boss flag (camera rumble, boss levels, never randomly spawned) |
 
 Next: **[05 · Gameplay & Tuning](05-GAMEPLAY-AND-TUNING.md)**

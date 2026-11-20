@@ -91,6 +91,19 @@
 
 ---
 
+## 6b. Runner upgrade (step 7)
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Black void behind the start section / the track stops after ~60 m | The scene was never upgraded, so `TrackManager` is not streaming | Run `Tools ▸ NUMBER RUSH 3D ▸ 7. Upgrade Existing Scene`. If it is already present, make sure `Systems` has `TrackManager` **and** `LevelManager` (the manager calls `Initialize` + `Begin`) |
+| The legacy ground is still visible and z-fights with the slices | `TrackManager.legacyTrack` is empty | Drag the scene root `Environment` into that field (or re-run step 7) |
+| No level select on Play | `LevelManager` missing, no `LevelCatalog` assigned, or `Show Level Select On Boot` off | Run step 7; check `LevelManager.catalog` points at `Settings/LevelCatalog.asset` |
+| Level select shows "NO LEVEL CATALOG ASSIGNED" | Catalog asset missing | Run step 1 or step 7 (creates `Settings/LevelCatalog.asset` + 100 levels) |
+| Gates never appear / never fire | `GateManager` not on `Systems`, or `LevelManager` missing (nothing calls `Begin`) | Run step 7; gates need a running `ArmyController` to detect the crossing |
+| HUD has no coins / progress bar / pause button | The HUD widgets were deleted after the upgrade | `HudController` recreates them at runtime when the fields are empty; or re-run step 7 |
+| Two level select screens / doubled widgets | Step 7 was expected to add them twice | It cannot — every step is guarded. If you see doubles, delete the extra object once; re-running is safe |
+| A boss level never completes | The boss must be **defeated** (it is scheduled at `bossProgress`) | Kill it; if it despawns, the level still completes because the boss flag only requires it to be gone |
+
 ## 7. Android
 
 | Symptom | Cause | Fix |
