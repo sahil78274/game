@@ -52,12 +52,12 @@ hold the line   ⇔  armyDPS ≥ requiredDPS
 
 With the shipped defaults:
 
-| Time | d | Spawn rate | Required DPS | Soldiers needed | Typical army |
-|---|---|---|---|---|---|
-| 0 s | 0.00 | 0.74 /s | **3.7** | 5 | 10 (9 DPS) ✅ |
-| 30 s | 0.32 | 1.06 /s | **5.4** | 6 | ~13 (12 DPS) ✅ |
-| 60 s | 0.63 | 1.49 /s | **9.9** | 11 | ~17 (15 DPS) ✅ |
-| 95 s | 1.00 | 2.94 /s | **19.6** | 22 | ~22 (20 DPS) ⚠️ |
+| Time | d | Spawn rate | Avg HP | Required DPS | Soldiers needed | Typical army |
+|---|---|---|---|---|---|---|
+| 0 s | 0.00 | 0.74 /s | 5.0 | **3.7** | 5 | 10 → 9 DPS ✅ |
+| 30 s | 0.32 | 0.97 /s | 4.2 | **4.1** | 5 | ~13 → 12 DPS ✅ |
+| 60 s | 0.63 | 1.40 /s | 6.7 | **9.3** | 11 | ~17 → 15 DPS ✅ |
+| 95 s | 1.00 | 2.94 /s | 6.7 | **19.6** | 22 | ~22-26 → 20-23 DPS ⚠️ |
 
 So the ramp and the growth curve cross at roughly the 90–100 second mark: that is where runs end for an average player, and where a skilled player has to stop losing soldiers.
 

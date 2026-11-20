@@ -1,7 +1,7 @@
 # 02 · Scene Setup
 
 The scene is called **`NumberRush3D`** and lives at `Assets/NumberRush3D/Scenes/NumberRush3D.unity`.
-It is produced automatically by **`Tools ▸ NUMBER RUSH 3D ▸ 1. Build Materials, Prefabs & Scene`**; this chapter describes exactly what that produces, so you can rebuild it by hand or modify it confidently.
+It is produced automatically by **`Tools ▸ NUMBER RUSH 3D ▸ 1. Build Materials, Prefabs and Scene`**; this chapter describes exactly what that produces, so you can rebuild it by hand or modify it confidently.
 
 ---
 

@@ -61,7 +61,7 @@ namespace NumberRush3D.EditorTools
             public Material barFill;
         }
 
-        [MenuItem("Tools/NUMBER RUSH 3D/1. Build Materials, Prefabs && Scene", false, 1)]
+        [MenuItem("Tools/NUMBER RUSH 3D/1. Build Materials, Prefabs and Scene", false, 1)]
         public static void BuildAllMenu()
         {
             bool proceed = EditorUtility.DisplayDialog(
@@ -125,7 +125,7 @@ namespace NumberRush3D.EditorTools
                 Debug.Log(
                     "[NumberRush] Build complete.\n" +
                     $"Scene: {ScenePath}\n" +
-                    "Press Play to run. Use Tools > NUMBER RUSH 3D > 2. Configure Android Build Settings before building.");
+                    "Press Play to run. Use Tools > NUMBER RUSH 3D > 2. Configure Android Player Settings before building.");
 
                 EditorUtility.DisplayDialog(
                     "NUMBER RUSH 3D",

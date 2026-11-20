@@ -159,7 +159,7 @@ namespace NumberRush3D.EditorTools
             {
                 EditorUtility.DisplayDialog(
                     "NUMBER RUSH 3D",
-                    "Scene not found at:\n" + scenePath + "\n\nRun 'Tools > NUMBER RUSH 3D > 1. Build Materials, Prefabs & Scene' first.",
+                    "Scene not found at:\n" + scenePath + "\n\nRun 'Tools > NUMBER RUSH 3D > 1. Build Materials, Prefabs and Scene' first.",
                     "OK");
                 return;
             }

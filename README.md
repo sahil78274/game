@@ -35,7 +35,7 @@ Blue soldiers stand at the bottom of the track, red enemies march in from the ho
 
 1. **Create the project** — Unity Hub → New Project → **Universal 3D** template → Unity **6000.3.x (6.3 LTS)** → name it `NumberRush3D`.
 2. **Copy** the `Assets/NumberRush3D` folder from this repository into your new project's `Assets/` folder.
-3. In Unity, run **`Tools ▸ NUMBER RUSH 3D ▸ 1. Build Materials, Prefabs & Scene`**.
+3. In Unity, run **`Tools ▸ NUMBER RUSH 3D ▸ 1. Build Materials, Prefabs and Scene`**.
 4. Press **Play**. Swipe / drag with the mouse, or press **A / D**.
 5. Run **`Tools ▸ NUMBER RUSH 3D ▸ 2. Configure Android Player Settings`**, then **`3. Build Android APK`**.
 

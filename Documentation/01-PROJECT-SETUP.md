@@ -28,7 +28,7 @@ This is the path that requires no URP configuration at all, because the template
 4. Copy the folder `Assets/NumberRush3D` from this repository into `Assets/` of the new project.
    (Drag & drop in your file manager, or `cp -r` on the command line.)
 5. Back in Unity, wait for the script compile to finish (no errors expected), then run
-   **`Tools ▸ NUMBER RUSH 3D ▸ 1. Build Materials, Prefabs & Scene`**.
+   **`Tools ▸ NUMBER RUSH 3D ▸ 1. Build Materials, Prefabs and Scene`**.
 6. Press **Play**.
 
 ## 3. Path B — open this repository directly
@@ -46,7 +46,7 @@ This repository is a valid (minimal) Unity project: it contains `Assets/`, `Pack
    **c.** `Edit ▸ Project Settings ▸ Graphics` → **Default Render Pipeline** = `URP_Mobile`.
    Also set it for every quality level (`Project Settings ▸ Quality ▸ Render Pipeline Asset`), otherwise the quality level silently falls back to built-in rendering.
 
-   **d.** `Tools ▸ NUMBER RUSH 3D ▸ 1. Build Materials, Prefabs & Scene`.
+   **d.** `Tools ▸ NUMBER RUSH 3D ▸ 1. Build Materials, Prefabs and Scene`.
 
 > **Why this matters:** URP shaders render **magenta** when no pipeline asset is assigned. The generator detects the situation and falls back to the built-in `Standard` shader so you never see pink boxes, but you only get the intended URP look once a pipeline asset is assigned.
 
