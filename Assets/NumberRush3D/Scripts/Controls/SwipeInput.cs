@@ -200,8 +200,7 @@ namespace NumberRush3D.Controls
             }
 
             _eventData.position = frame.Position;
-            _eventData.pressEventCamera = uiRaycastCamera != null ? uiRaycastCamera : Camera.main;
-            _raycastResults.Clear();
+_raycastResults.Clear();
 
             eventSystem.RaycastAll(_eventData, _raycastResults);
             return _raycastResults.Count > 0;

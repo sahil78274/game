@@ -115,11 +115,11 @@ namespace NumberRush3D.UI
         /// <summary>Filled button with a bold centred caption.</summary>
         public static Button MakeButton(Transform parent, string name, string caption, Color background, int fontSize = 40)
         {
-            RawImage background = MakePanel(name, parent, background, true);
-            RectTransform rect = background.rectTransform;
+            RawImage backgroundImage = MakePanel(name, parent, background, true);
+RectTransform rect = backgroundImage.rectTransform;
 
             Button button = rect.gameObject.AddComponent<Button>();
-            button.targetGraphic = background;
+            button.targetGraphic = backgroundImage;
             button.transition = Selectable.Transition.ColorTint;
 
             Text label = MakeLabel(rect, "Label", caption, fontSize, Color.white, TextAnchor.MiddleCenter);

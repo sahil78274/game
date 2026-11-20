@@ -76,9 +76,9 @@ namespace NumberRush3D.Gates
             _postRenderers = new Renderer[3];
 
             // Outer post, inner post, top beam: a simple goal frame.
-            _postRenderers[0] = CreateBox("Post_L", new Vector3(-0.5f, 0f, 0f), new Vector3(PostWidth, PostHeight, PostWidth), postMaterial);
-            _postRenderers[1] = CreateBox("Post_R", new Vector3(0.5f, 0f, 0f), new Vector3(PostWidth, PostHeight, PostWidth), postMaterial);
-            _postRenderers[2] = CreateBox("Beam", new Vector3(0f, 0f, 0f), new Vector3(1f, PostWidth, PostWidth), postMaterial);
+           _postRenderers[0] = CreateBox("Post_L", new Vector3(-0.5f, 0f, 0f), new Vector3(PostWidth, PostHeight, PostWidth), postMaterial).GetComponent<Renderer>();
+_postRenderers[1] = CreateBox("Post_R", new Vector3(0.5f, 0f, 0f), new Vector3(PostWidth, PostHeight, PostWidth), postMaterial).GetComponent<Renderer>();
+_postRenderers[2] = CreateBox("Beam", new Vector3(0f, 0f, 0f), new Vector3(1f, PostWidth, PostWidth), postMaterial).GetComponent<Renderer>();
 
             Transform panel = CreateBox("Panel", new Vector3(0f, 0f, 0f), new Vector3(0.92f, PanelHeight, 0.12f), panelMaterial);
             _panelRenderer = panel.GetComponent<MeshRenderer>();
