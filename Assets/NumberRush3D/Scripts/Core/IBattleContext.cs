@@ -29,6 +29,12 @@ namespace NumberRush3D.Core
         /// <summary>Per-level multiplier applied to the spawn interval (&lt;1 = more enemies).</summary>
         float SpawnIntervalScale { get; }
 
+        /// <summary>Army size granted at the start of the run (level data overrides GameSettings).</summary>
+        int StartingSoldiers { get; }
+
+        /// <summary>Maximum number of simultaneous enemies (level data overrides GameSettings).</summary>
+        int MaxConcurrentEnemies { get; }
+
         ArmyController Army { get; }
         BulletPool Bullets { get; }
         VfxPool Vfx { get; }

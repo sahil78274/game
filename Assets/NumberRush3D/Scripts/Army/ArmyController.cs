@@ -41,6 +41,7 @@ namespace NumberRush3D.Army
         private bool _running;
         private float _startZ;
         private float _forwardSpeed;
+        private float _speedOverride = -1f;
         private float _distanceTravelled;
 
         /// <summary>Number of living soldiers.</summary>
@@ -112,12 +113,14 @@ namespace NumberRush3D.Army
             _targetLane = _settings.CenterLane;
             _startZ = _settings.armyZ;
             _distanceTravelled = 0f;
-            _forwardSpeed = Mathf.Max(0f, _settings.runnerStartSpeed);
+            _forwardSpeed = _speedOverride >= 0f ? _speedOverride : Mathf.Max(0f, _settings.runnerStartSpeed);
             transform.position = new Vector3(_settings.LaneX(_targetLane), transform.position.y, _startZ);
+
+            int startingSoldiers = _context.StartingSoldiers > 0 ? _context.StartingSoldiers : _settings.startingSoldiers;
 
             _soldiers.Clear();
             _slotsDirty = true;
-            AddSoldiers(_settings.startingSoldiers, false);
+            AddSoldiers(startingSoldiers, false);
             _running = true;
 
             ArmyCountChanged?.Invoke(_soldiers.Count, _settings.maxSoldiers);
@@ -232,6 +235,12 @@ namespace NumberRush3D.Army
         public void SetForwardSpeed(float speed)
         {
             _forwardSpeed = Mathf.Max(0f, speed);
+        }
+
+        /// <summary>Speed used by the next <see cref="Begin"/> call (level specific run speed).</summary>
+        public void OverrideStartSpeed(float speed)
+        {
+            _speedOverride = Mathf.Max(0f, speed);
         }
 
         /// <summary>Stops forward motion (level complete / failed).</summary>

@@ -41,6 +41,7 @@ namespace NumberRush3D.Enemies
         private float _elapsed;
         private float _despawnTimer;
         private int _lastLane = -1;
+        private EnemyType[] _levelTypes;
         private EnemyType _pendingBoss;
         private float _pendingBossProgress = 1f;
         private bool _bossSpawned;
@@ -79,6 +80,15 @@ namespace NumberRush3D.Enemies
                 poolRoot,
                 prewarm,
                 Mathf.Max(8, settings.maxConcurrentEnemies + 8));
+        }
+
+        /// <summary>
+        /// Restricts spawning to a level specific subset. Pass null to fall back to the inspector array.
+        /// Boss assets are always excluded from the random pool, they are scheduled explicitly.
+        /// </summary>
+        public void SetEnabledTypes(EnemyType[] types)
+        {
+            _levelTypes = types != null && types.Length > 0 ? types : null;
         }
 
         /// <summary>Called by <see cref="GameManager"/> when a run starts.</summary>
@@ -166,7 +176,8 @@ namespace NumberRush3D.Enemies
         private void SpawnWave()
         {
             int burst = _settings.SpawnBurstAt(_elapsed);
-            int maxConcurrent = _settings.maxConcurrentEnemies + (_bossSpawned ? bossExtraConcurrency : 0);
+            int baseCap = _context.MaxConcurrentEnemies > 0 ? _context.MaxConcurrentEnemies : _settings.maxConcurrentEnemies;
+            int maxConcurrent = baseCap + (_bossSpawned ? bossExtraConcurrency : 0);
 
             for (int i = 0; i < burst; i++)
             {
@@ -261,17 +272,19 @@ namespace NumberRush3D.Enemies
         /// <summary>Weighted random pick among the types unlocked at the current difficulty.</summary>
         private EnemyType PickType()
         {
-            if (enemyTypes == null || enemyTypes.Length == 0)
+            EnemyType[] pool = _levelTypes != null ? _levelTypes : enemyTypes;
+            if (pool == null || pool.Length == 0)
             {
                 return null;
             }
 
+
             float difficulty = _settings.Difficulty01(_elapsed);
             float totalWeight = 0f;
 
-            for (int i = 0; i < enemyTypes.Length; i++)
+            for (int i = 0; i < pool.Length; i++)
             {
-                EnemyType type = enemyTypes[i];
+                EnemyType type = pool[i];
                 if (type == null || type.isBoss || difficulty < type.minDifficulty)
                 {
                     continue;
@@ -283,11 +296,11 @@ namespace NumberRush3D.Enemies
             if (totalWeight <= 0f)
             {
                 // Nothing unlocked yet (or every asset is null) - fall back to the first valid type.
-                for (int i = 0; i < enemyTypes.Length; i++)
+                for (int i = 0; i < pool.Length; i++)
                 {
-                    if (enemyTypes[i] != null && !enemyTypes[i].isBoss)
+                    if (pool[i] != null && !pool[i].isBoss)
                     {
-                        return enemyTypes[i];
+                        return pool[i];
                     }
                 }
 
@@ -295,9 +308,9 @@ namespace NumberRush3D.Enemies
             }
 
             float roll = Random.value * totalWeight;
-            for (int i = 0; i < enemyTypes.Length; i++)
+            for (int i = 0; i < pool.Length; i++)
             {
-                EnemyType type = enemyTypes[i];
+                EnemyType type = pool[i];
                 if (type == null || type.isBoss || difficulty < type.minDifficulty)
                 {
                     continue;
@@ -310,7 +323,7 @@ namespace NumberRush3D.Enemies
                 }
             }
 
-            return enemyTypes[0];
+            return pool[0];
         }
 
         /// <summary>Random lane, avoiding an immediate repeat so waves spread out visually.</summary>

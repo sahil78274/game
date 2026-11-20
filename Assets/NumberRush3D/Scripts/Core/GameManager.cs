@@ -4,6 +4,7 @@ using NumberRush3D.Army;
 using NumberRush3D.Combat;
 using NumberRush3D.Controls;
 using NumberRush3D.Enemies;
+using NumberRush3D.Levels;
 using NumberRush3D.UI;
 using NumberRush3D.View;
 using UnityEngine;
@@ -55,6 +56,7 @@ namespace NumberRush3D.Core
         [Range(0f, 3f)] [SerializeField] private float gameOverSlowMotionDuration = 0.55f;
 
         private Coroutine _gameOverRoutine;
+        private LevelDefinition _activeLevel;
         private Enemy _activeBoss;
         private float _bossRumbleTimer;
         private GameState _stateBeforePause = GameState.Playing;
@@ -80,6 +82,23 @@ namespace NumberRush3D.Core
         public float EnemyHealthMultiplier { get; private set; } = 1f;
         public float EnemySpeedMultiplier { get; private set; } = 1f;
         public float SpawnIntervalScale { get; private set; } = 1f;
+        public int StartingSoldiers { get; private set; }
+        public int MaxConcurrentEnemies { get; private set; }
+
+        /// <summary>True when a boss has spawned during this run (level completion needs it dead).</summary>
+        public bool BossSpawnedThisRun { get; private set; }
+
+        /// <summary>True while the summoned boss is still alive.</summary>
+        public bool BossAlive => _activeBoss != null && _activeBoss.IsAlive;
+
+        /// <summary>
+        /// Campaign runs show their own level complete / failed screens; when this is true the
+        /// legacy game over panel stays hidden.
+        /// </summary>
+        public bool SuppressResultPanel { get; set; }
+
+        /// <summary>Level definition currently running (null in Free Run).</summary>
+        public LevelDefinition ActiveLevel => _activeLevel;
 
         public ArmyController Army => army;
         public BulletPool Bullets => bulletPool;
@@ -158,7 +177,8 @@ namespace NumberRush3D.Core
                 cameraRig.Initialize(settings, army.transform);
             }
 
-            LevelNumber = Mathf.Max(0, settings.firstLevel - 1);
+            ApplyRunProfile();
+
             State = GameState.Playing;
             StateChanged?.Invoke(State);
         }
@@ -289,6 +309,7 @@ namespace NumberRush3D.Core
             }
 
             _activeBoss = boss;
+            BossSpawnedThisRun = true;
             _bossRumbleTimer = 1.2f;
 
             if (cameraRig != null)
@@ -372,7 +393,54 @@ namespace NumberRush3D.Core
 
             Time.timeScale = 0f;
             _gameOverRoutine = null;
-            RunEnded?.Invoke(Score, BestScore);
+
+            if (!SuppressResultPanel)
+            {
+                RunEnded?.Invoke(Score, BestScore);
+            }
+        }
+
+        /// <summary>
+        /// Ends the run as a success: the army stops, input is disabled and the simulation freezes
+        /// after a short slow motion beat so the finish reads clearly.
+        /// </summary>
+        public void CompleteLevel()
+        {
+            if (State != GameState.Playing)
+            {
+                return;
+            }
+
+            State = GameState.LevelComplete;
+            StateChanged?.Invoke(State);
+
+            if (army != null)
+            {
+                army.StopRunning();
+            }
+
+            if (inputSource != null)
+            {
+                inputSource.SetInteractionEnabled(false);
+            }
+
+            SaveBestScore();
+            PlayerPrefs.Save();
+
+            if (_gameOverRoutine != null)
+            {
+                StopCoroutine(_gameOverRoutine);
+            }
+
+            _gameOverRoutine = StartCoroutine(LevelCompleteSequence());
+        }
+
+        private IEnumerator LevelCompleteSequence()
+        {
+            Time.timeScale = 0.35f;
+            yield return new WaitForSecondsRealtime(Mathf.Max(0.05f, settings.levelEndSlowMotionDuration));
+            Time.timeScale = 0f;
+            _gameOverRoutine = null;
         }
 
         /// <summary>Pauses the run (time scale 0) without ending it.</summary>
@@ -481,6 +549,51 @@ namespace NumberRush3D.Core
         // ------------------------------------------------------------------------------------
 
         private Func<float> _externalProgress;
+
+        /// <summary>
+        /// Reads the level resolved by <see cref="LevelManager"/> (it runs before this Awake) and
+        /// installs the run profile: army size, enemy scaling, concurrency and the progress source.
+        /// </summary>
+        private void ApplyRunProfile()
+        {
+            _activeLevel = LevelLaunch.ActiveLevel;
+
+            StartingSoldiers = Mathf.Max(1, settings.startingSoldiers);
+            MaxConcurrentEnemies = Mathf.Max(2, settings.maxConcurrentEnemies);
+            LevelNumber = 0;
+            EnemyHealthMultiplier = 1f;
+            EnemySpeedMultiplier = 1f;
+            SpawnIntervalScale = 1f;
+            _externalProgress = null;
+
+            if (_activeLevel == null)
+            {
+                return;
+            }
+
+            LevelNumber = Mathf.Max(1, _activeLevel.levelNumber);
+            StartingSoldiers = Mathf.Max(1, _activeLevel.startingSoldiers);
+            MaxConcurrentEnemies = Mathf.Max(2, _activeLevel.maxConcurrentEnemies);
+            EnemyHealthMultiplier = Mathf.Max(0.05f, _activeLevel.enemyHealthMultiplier);
+            EnemySpeedMultiplier = Mathf.Max(0.05f, _activeLevel.enemySpeedMultiplier);
+            SpawnIntervalScale = Mathf.Clamp(_activeLevel.spawnIntervalScale, 0.05f, 5f);
+            _externalProgress = ReadLevelProgress;
+
+            if (army != null)
+            {
+                army.OverrideStartSpeed(_activeLevel.runSpeed > 0f ? _activeLevel.runSpeed : settings.runnerStartSpeed);
+            }
+        }
+
+        private float ReadLevelProgress()
+        {
+            if (_activeLevel == null || army == null || _activeLevel.trackLength <= 0f)
+            {
+                return 0f;
+            }
+
+            return Mathf.Clamp01(army.DistanceTravelled / _activeLevel.trackLength);
+        }
 
         /// <summary>
         /// Installs the campaign run profile: level number, difficulty scales and the progress source.
