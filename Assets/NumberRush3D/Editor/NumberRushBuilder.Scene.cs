@@ -240,9 +240,14 @@ namespace NumberRush3D.EditorTools
         {
             return new[]
             {
+                // Normal / fast / heavy / armoured: the four random spawn kinds.
                 CreateEnemyType("EnemyType_Grunt", "Grunt", 5f, 2.4f, 1f, new Color(0.91f, 0.19f, 0.23f, 1f), 10, 0, 1, 1f, 0f),
                 CreateEnemyType("EnemyType_Runner", "Runner", 3f, 4.1f, 0.78f, new Color(1f, 0.56f, 0.16f, 1f), 15, 0, 1, 0.7f, 0.18f),
-                CreateEnemyType("EnemyType_Brute", "Brute", 16f, 1.7f, 1.45f, new Color(0.72f, 0.12f, 0.5f, 1f), 30, 1, 2, 0.45f, 0.4f)
+                CreateEnemyType("EnemyType_Brute", "Brute", 16f, 1.7f, 1.45f, new Color(0.72f, 0.12f, 0.5f, 1f), 30, 1, 2, 0.45f, 0.4f),
+                CreateEnemyType("EnemyType_Armored", "Armored", 10f, 2f, 1.12f, new Color(0.55f, 0.58f, 0.66f, 1f), 25, 0, 2, 0.35f, 0.45f, 0.45f),
+
+                // Boss: never picked at random, a level schedules it explicitly.
+                CreateEnemyType("EnemyType_Boss", "Boss", 140f, 1.2f, 2.4f, new Color(0.6f, 0.06f, 0.16f, 1f), 250, 3, 12, 0.01f, 1f, 0.75f, true, 4f)
             };
         }
 
@@ -257,7 +262,10 @@ namespace NumberRush3D.EditorTools
             int recruitValue,
             int armyDamage,
             float spawnWeight,
-            float minDifficulty)
+            float minDifficulty,
+            float damageResistance = 1f,
+            bool isBoss = false,
+            float formationDepth = 0f)
         {
             string path = $"{SettingsFolder}/{fileName}.asset";
             EnemyType type = AssetDatabase.LoadAssetAtPath<EnemyType>(path);
@@ -283,6 +291,9 @@ namespace NumberRush3D.EditorTools
                 type.armyDamage = armyDamage;
                 type.spawnWeight = spawnWeight;
                 type.minDifficulty = minDifficulty;
+                type.damageResistance = damageResistance;
+                type.isBoss = isBoss;
+                type.formationDepth = formationDepth;
                 EditorUtility.SetDirty(type);
             }
 

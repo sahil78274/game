@@ -108,6 +108,65 @@ namespace NumberRush3D.Core
         public Color skyColor = new Color(0.035f, 0.045f, 0.08f, 1f);
         public Color railColor = new Color(0.22f, 0.28f, 0.42f, 1f);
 
+        [Header("Runner")]
+        [Tooltip("Forward speed of the army when a level starts (units per second).")]
+        [Range(0f, 25f)] public float runnerStartSpeed = 7f;
+
+        [Tooltip("Forward speed at the end of a level. 0 = constant speed. Values above runnerStartSpeed create a speed ramp.")]
+        [Range(0f, 30f)] public float runnerEndSpeed = 0f;
+
+        [Header("Infinite Track")]
+        [Tooltip("Length of one pooled track segment. Must match the TrackSegment prefab.")]
+        [Range(5f, 60f)] public float trackSegmentLength = 20f;
+
+        [Tooltip("How many pooled segments are kept alive. Visible distance / segment length + 3 is a good value.")]
+        [Range(3, 20)] public int trackSegmentCount = 8;
+
+        [Tooltip("A segment is recycled once it is this far behind the army.")]
+        [Range(5f, 80f)] public float trackRecycleBehind = 30f;
+
+        [Tooltip("Random +/- offset applied to track decorations.")]
+        [Range(0f, 1.5f)] public float trackDecorJitter = 0.4f;
+
+        [Header("Runner Enemies")]
+        [Tooltip("Enemies spawn this many units ahead of the army.")]
+        [Range(10f, 80f)] public float enemySpawnAhead = 30f;
+
+        [Tooltip("Enemies further behind the army than this are recycled (missed encounters).")]
+        [Range(2f, 40f)] public float enemyDespawnBehind = 12f;
+
+        [Tooltip("Distance in front of the army where an enemy rams the army.")]
+        [Range(0.5f, 12f)] public float ramDistanceAhead = 4f;
+
+        [Header("Number Gates")]
+        [Tooltip("Gates are spawned when the army is at most this far from the row.")]
+        [Range(10f, 60f)] public float gateLookAhead = 26f;
+
+        [Tooltip("Distance in meters between gate rows.")]
+        [Range(8f, 60f)] public float gateSpacing = 22f;
+
+        [Tooltip("Distance from the start line to the first gate row.")]
+        [Range(5f, 60f)] public float gateFirstDistance = 18f;
+
+        [Tooltip("Extra gates per row: 0 = 2 gates, 1 = up to 3 gates, 2 = up to 4 gates.")]
+        [Range(0, 2)] public int gateExtraGates = 1;
+
+        [Tooltip("Chance that a non-guaranteed lane receives a negative gate.")]
+        [Range(0f, 1f)] public float gateNegativeChance = 0.55f;
+
+        [Tooltip("How long the gate feedback toast stays on screen (seconds).")]
+        [Range(0.5f, 4f)] public float gateToastDuration = 1.4f;
+
+        [Header("Levels & Economy")]
+        [Tooltip("Coins awarded per enemy killed, on top of the level reward.")]
+        [Range(0, 10)] public int coinsPerKill = 1;
+
+        [Tooltip("Level loaded when no saved progress exists.")]
+        [Range(1, 200)] public int firstLevel = 1;
+
+        [Tooltip("Seconds of slow motion before the level complete / failed panel appears.")]
+        [Range(0f, 3f)] public float levelEndSlowMotionDuration = 0.55f;
+
         [System.NonSerialized] private LayerMask? _enemyMaskCache;
 
         /// <summary>Half of the total playable width (outer lane center + half a lane).</summary>
@@ -126,6 +185,12 @@ namespace NumberRush3D.Core
         }
 
         public int CenterLane => Mathf.Max(0, laneCount - 1) / 2;
+
+        /// <summary>World Z at which an enemy rams an army that is currently at <paramref name="armyZ"/>.</summary>
+        public float RamZ(float armyZ)
+        {
+            return armyZ + ramDistanceAhead;
+        }
 
         /// <summary>0 at run start, 1 once <see cref="difficultyRampSeconds"/> has elapsed.</summary>
         public float Difficulty01(float elapsedSeconds)

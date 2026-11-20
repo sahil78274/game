@@ -6,11 +6,13 @@ using UnityEngine;
 namespace NumberRush3D.Army
 {
     /// <summary>
-    /// One blue soldier. Fully autonomous: it picks the closest enemy in front of the army,
+    /// One blue soldier. Fully autonomous: it runs with the army, picks the closest enemy in front,
     /// fires the shared <see cref="BulletPool"/> and plays a small pop / muzzle flash animation.
     ///
-    /// Target acquisition is staggered across soldiers (random phase) and only runs every
-    /// <see cref="GameSettings.targetRefreshInterval"/> seconds, which keeps 60 soldiers cheap.
+    /// Target acquisition is staggered across soldiers (random phase) and sticky, so the crowd
+    /// spreads its fire instead of converging on a single enemy. The run cycle is procedural
+    /// (limb swing driven by <see cref="ArmyController.ForwardSpeed"/>) because the prototype has
+    /// no animation clips - assign the four limb transforms to enable it.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class SoldierUnit : MonoBehaviour
@@ -28,6 +30,25 @@ namespace NumberRush3D.Army
         [Tooltip("Renderer toggled for a couple of frames when the soldier fires.")]
         [SerializeField] private Renderer muzzleFlash;
 
+        [Header("Procedural run (optional)")]
+        [Tooltip("Left leg transform, swung on the local X axis. Leave empty to disable the run cycle.")]
+        [SerializeField] private Transform leftLeg;
+
+        [Tooltip("Right leg transform, swung opposite to the left leg.")]
+        [SerializeField] private Transform rightLeg;
+
+        [Tooltip("Left arm transform, swung opposite to the left leg.")]
+        [SerializeField] private Transform leftArm;
+
+        [Tooltip("Right arm transform.")]
+        [SerializeField] private Transform rightArm;
+
+        [Tooltip("Leg swing amplitude in degrees at full speed.")]
+        [Range(0f, 60f)] [SerializeField] private float runSwingDegrees = 30f;
+
+        [Tooltip("Run cycle speed (radians/second) at zero and at full army speed.")]
+        [SerializeField] private Vector2 runCycleSpeed = new Vector2(5f, 13f);
+
         private IBattleContext _context;
         private ArmyController _army;
         private Enemy _target;
@@ -38,6 +59,7 @@ namespace NumberRush3D.Army
         private bool _alive;
         private bool _popSettled;
         private float _bobPhase;
+        private float _runPhase;
         private Vector3 _baseBodyScale = Vector3.one;
         private Vector3 _baseBodyLocalPosition;
         private Quaternion _baseRotation = Quaternion.identity;
@@ -70,10 +92,24 @@ namespace NumberRush3D.Army
                 }
             }
 
+            if (bodyRoot != null)
+            {
+                // The advanced prefab keeps the limbs under Visual/Limbs.
+                Transform limbs = bodyRoot.Find("Limbs");
+                if (limbs != null)
+                {
+                    if (leftLeg == null) leftLeg = limbs.Find("LegL");
+                    if (rightLeg == null) rightLeg = limbs.Find("LegR");
+                    if (leftArm == null) leftArm = limbs.Find("ArmL");
+                    if (rightArm == null) rightArm = limbs.Find("ArmR");
+                }
+            }
+
             _baseBodyScale = bodyRoot != null ? bodyRoot.localScale : Vector3.one;
             _baseBodyLocalPosition = bodyRoot != null ? bodyRoot.localPosition : Vector3.zero;
             _baseRotation = transform.localRotation;
             _bobPhase = Random.Range(0f, Mathf.PI * 2f);
+            _runPhase = Random.Range(0f, Mathf.PI * 2f);
             _alive = true;
         }
 
@@ -129,7 +165,6 @@ namespace NumberRush3D.Army
             GameSettings settings = _context.Settings;
 
             // Sticky targeting: a soldier keeps shooting the enemy it picked until that enemy dies.
-            // Re-acquiring every interval would make the whole army converge on a single target.
             _retargetTimer -= deltaTime;
             if (_retargetTimer <= 0f && _target == null)
             {
@@ -151,7 +186,6 @@ namespace NumberRush3D.Army
 
             if (_target == null)
             {
-                // Nothing to shoot: poll again shortly instead of running the search every frame.
                 _fireTimer = 0.1f;
                 return;
             }
@@ -168,7 +202,10 @@ namespace NumberRush3D.Army
             }
 
             Vector3 origin = muzzle != null ? muzzle.position : transform.position;
-            _target = registry.FindNearest(origin, settings.targetSearchRange, settings.armyZ - 1f);
+
+            // The army keeps moving, so "in front" must be relative to its current position.
+            float minZ = (_army != null ? _army.WorldZ : settings.armyZ) - 1f;
+            _target = registry.FindNearest(origin, settings.targetSearchRange, minZ);
         }
 
         private void Fire(GameSettings settings)
@@ -219,6 +256,8 @@ namespace NumberRush3D.Army
                 }
             }
 
+            AnimateRun(deltaTime);
+
             if (bodyRoot == null)
             {
                 return;
@@ -266,6 +305,29 @@ namespace NumberRush3D.Army
                     _baseRotation,
                     1f - Mathf.Exp(-8f * deltaTime));
             }
+        }
+
+        /// <summary>Procedural run cycle: legs and arms swing in opposite phase, faster with speed.</summary>
+        private void AnimateRun(float deltaTime)
+        {
+            if (leftLeg == null && rightLeg == null)
+            {
+                return;
+            }
+
+            float speed = _army != null ? _army.ForwardSpeed : 0f;
+            float speed01 = Mathf.Clamp01(speed / 10f);
+            float cycleSpeed = Mathf.Lerp(runCycleSpeed.x, runCycleSpeed.y, speed01);
+
+            _runPhase += deltaTime * cycleSpeed;
+
+            float swing = Mathf.Sin(_runPhase) * runSwingDegrees;
+            float armSwing = swing * 0.7f;
+
+            if (leftLeg != null) leftLeg.localRotation = Quaternion.Euler(swing, 0f, 0f);
+            if (rightLeg != null) rightLeg.localRotation = Quaternion.Euler(-swing, 0f, 0f);
+            if (leftArm != null) leftArm.localRotation = Quaternion.Euler(-armSwing, 0f, 0f);
+            if (rightArm != null) rightArm.localRotation = Quaternion.Euler(armSwing, 0f, 0f);
         }
     }
 }
