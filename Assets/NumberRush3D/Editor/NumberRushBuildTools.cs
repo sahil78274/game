@@ -1,4 +1,9 @@
 using System.IO;
+using NumberRush3D.Core;
+using NumberRush3D.Gates;
+using NumberRush3D.Levels;
+using NumberRush3D.Track;
+using NumberRush3D.UI;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -65,12 +70,58 @@ namespace NumberRush3D.EditorTools
             inputLine = "Input backend   : NONE - swipes will not work. Enable an input backend in Project Settings > Player > Active Input Handling.";
 #endif
 
+            // --- Runner / campaign state of the OPEN scene ----------------------------------
+            TrackManager track = Object.FindFirstObjectByType<TrackManager>(FindObjectsInactive.Include);
+            GateManager gateManager = Object.FindFirstObjectByType<GateManager>(FindObjectsInactive.Include);
+            LevelManager levelManager = Object.FindFirstObjectByType<LevelManager>(FindObjectsInactive.Include);
+            LevelSelectScreen levelSelect = Object.FindFirstObjectByType<LevelSelectScreen>(FindObjectsInactive.Include);
+            GameManager gameManager = Object.FindFirstObjectByType<GameManager>(FindObjectsInactive.Include);
+            GameObject environment = GameObject.Find("Environment");
+
+            LevelCatalog catalog = AssetDatabase.LoadAssetAtPath<LevelCatalog>(NumberRushBuilder.LevelCatalogPath);
+            int levelCount = catalog != null ? catalog.Count : 0;
+            int unlocked = LevelProgressStore.UnlockedLevel;
+
+            string runnerLine;
+            if (track != null && gateManager != null && levelManager != null)
+            {
+                runnerLine = "Runner systems  : OK (TrackManager + GateManager + LevelManager)";
+            }
+            else
+            {
+                string missing = string.Empty;
+                if (track == null) missing += "TrackManager ";
+                if (gateManager == null) missing += "GateManager ";
+                if (levelManager == null) missing += "LevelManager";
+
+                runnerLine = $"Runner systems  : MISSING [{missing.Trim()}] - run step 7 (Upgrade Existing Scene)";
+            }
+
+            string sceneUiLine = levelSelect != null
+                ? "Campaign UI     : OK (level select screen present)"
+                : "Campaign UI     : level select not in the scene - step 7 adds it (or LevelManager creates it at runtime)";
+
+            string levelLine = catalog == null
+                ? $"Level catalog   : MISSING - run step 7 or step 1 ({NumberRushBuilder.LevelCatalogPath})"
+                : $"Level catalog   : {levelCount} levels, level {unlocked} unlocked, {LevelProgressStore.TotalStars(levelCount)}/{levelCount * 3} stars";
+
+            string environmentLine = environment == null
+                ? "Legacy track    : none (already upgraded)"
+                : !environment.activeSelf
+                    ? "Legacy track    : Environment hidden (endless slices take over)"
+                    : "Legacy track    : Environment still visible - TrackManager hides it at runtime";
+
             string report =
                 "[NumberRush] Project checklist\n" +
                 pipelineLine + "\n" +
                 inputLine + "\n" +
                 $"Enemy layer     : {(LayerMask.NameToLayer(NumberRushBuilder.EnemyLayerName) >= 0 ? "OK" : "MISSING - run step 1")}\n" +
                 $"Scene           : {(File.Exists(NumberRushBuilder.ScenePath) ? "OK" : "MISSING - run step 1")}\n" +
+                $"Game manager    : {(gameManager != null ? "OK" : "MISSING in the open scene")}\n" +
+                runnerLine + "\n" +
+                sceneUiLine + "\n" +
+                levelLine + "\n" +
+                environmentLine + "\n" +
                 $"Build target    : {EditorUserBuildSettings.activeBuildTarget}\n" +
                 $"Bundle id       : {PlayerSettings.GetApplicationIdentifier(NamedBuildTarget.Android)}\n" +
                 $"Graphics APIs   : {string.Join(", ", PlayerSettings.GetGraphicsAPIs(BuildTarget.Android))}\n" +

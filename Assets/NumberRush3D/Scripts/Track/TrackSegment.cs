@@ -49,7 +49,8 @@ namespace NumberRush3D.Track
             Length = Mathf.Max(1f, spec.Length);
             _decor.Clear();
 
-            float width = spec.HalfWidth * 2f + 2f;
+            // Wide enough to carry the decoration on both sides, not just the driving surface.
+            float width = spec.HalfWidth * 2f + 20f;
             float centerZ = Length * 0.5f;
 
             // Floor. Top surface sits 2 cm above the legacy ground plane so the two never z-fight.
@@ -91,12 +92,9 @@ namespace NumberRush3D.Track
             // Decoration slots, repositioned on every recycle.
             for (int i = 0; i < DecorCount; i++)
             {
-                PrimitiveType shape = (i % 3) switch
-                {
-                    0 => PrimitiveType.Cube,
-                    1 => PrimitiveType.Cylinder,
-                    _ => PrimitiveType.Cube,
-                };
+                // Cube and sphere are exactly 1 unit tall at scale 1, so scale.y * 0.5 rests them
+                // on the floor. Cylinders are 2 units tall and would half sink - keep them out.
+                PrimitiveType shape = i % 3 == 1 ? PrimitiveType.Sphere : PrimitiveType.Cube;
 
                 Transform decor = CreatePart(
                     $"Decor_{i}",

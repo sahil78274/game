@@ -55,6 +55,14 @@ namespace NumberRush3D.Track
 
         public void Initialize(GameSettings settings, IBattleContext context)
         {
+            if (_pool != null)
+            {
+                // Already initialised (another manager or a second call): never build twice.
+                _settings = settings;
+                _context = context;
+                return;
+            }
+
             _settings = settings;
             _context = context;
 

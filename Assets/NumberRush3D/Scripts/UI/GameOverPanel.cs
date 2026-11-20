@@ -92,7 +92,7 @@ namespace NumberRush3D.UI
         private void Update()
         {
             // Keyboard shortcut for editor / TV builds. Harmless on touch devices.
-            if (_game == null || _game.State != GameState.GameOver)
+            if (_game == null || _game.State != GameState.GameOver || _game.SuppressResultPanel)
             {
                 return;
             }
@@ -105,6 +105,17 @@ namespace NumberRush3D.UI
 
         private void HandleRunEnded(int score, int best)
         {
+            // Campaign runs show their own LevelFailedPanel instead of this one.
+            if (_game != null && _game.SuppressResultPanel)
+            {
+                if (panelRoot != null)
+                {
+                    panelRoot.SetActive(false);
+                }
+
+                return;
+            }
+
             if (panelRoot != null)
             {
                 panelRoot.SetActive(true);

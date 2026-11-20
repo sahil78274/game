@@ -16,6 +16,12 @@ Target: **Unity 6.3 LTS (6000.3.x)** · **Universal Render Pipeline (URP) 17.3.0
 
 Optional packages that make profiling nicer: *Android Logcat* (Package Manager), *Memory Profiler*.
 
+> **Upgrading a project that already has a NUMBER RUSH 3D scene?** Do not rebuild it.
+> Copy the updated `Assets/NumberRush3D` folder over the old one, open your scene and run
+> **`Tools ▸ NUMBER RUSH 3D ▸ 7. Upgrade Existing Scene`**. It adds the runner systems
+> (endless track, number gates, campaign levels, campaign UI) and fills only empty references —
+> nothing is deleted or replaced. Full details: **[09 · Runner Upgrade](09-RUNNER-UPGRADE.md)**.
+
 ---
 
 ## 2. Path A — recommended: create the project from the Universal 3D template
@@ -152,13 +158,18 @@ Keep 2 levels (`Mobile` / `Mobile High`). Put the low-end values on level 0 and 
 
 1. Console shows no compile errors.
 2. The scene `Assets/NumberRush3D/Scenes/NumberRush3D.unity` is open (it is opened by the generator).
-3. Press **Play**:
+3. Press **Play**: the **LEVEL SELECT** screen appears over the frozen scene (level 1 unlocked, the
+   rest dimmed). Pick level 1, or **FREE RUN** for the endless mode.
+4. In a run:
    * 10 blue soldiers appear near the bottom of the view,
    * red enemies walk in from the horizon and die in yellow sparks,
    * the HUD counts the army (top left), score (top centre), best/wave (top right),
    * a swipe (or A/D) slides the army one lane with a soft ease,
    * the recruit bar fills; every 8 kills adds a soldier.
-4. Let enemies through on purpose until the army reaches 0 → slow motion → retry panel → **RETRY** restarts instantly.
+5. The army runs forward on its own while the track keeps streaming (no gap, no void), green/red
+   number gates arrive with 3D labels, and passing one changes the army immediately.
+6. Let enemies through on purpose until the army reaches 0 → slow motion → failed panel
+   (**RETRY** restarts) — in Free Run you get the original game over panel instead.
 
 If any of that does not happen, jump to **[08 · Troubleshooting](08-TROUBLESHOOTING.md)**.
 

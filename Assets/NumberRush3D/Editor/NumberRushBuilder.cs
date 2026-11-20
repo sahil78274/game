@@ -70,8 +70,10 @@ namespace NumberRush3D.EditorTools
                 "- Materials/*.mat\n" +
                 "- Prefabs/*.prefab\n" +
                 "- Settings/*.asset (only when missing)\n" +
+                "- Settings/Levels/*.asset (100 levels, only when missing)\n" +
                 "- Scenes/NumberRush3D.unity\n\n" +
-                "Existing tuning values in GameSettings are kept.\nContinue?",
+                "Existing tuning values in GameSettings, EnemyTypes and Levels are kept.\n" +
+                "Upgrading an existing scene instead? Use step 7.\nContinue?",
                 "Build it",
                 "Cancel");
 

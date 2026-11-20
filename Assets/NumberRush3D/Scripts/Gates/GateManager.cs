@@ -73,6 +73,15 @@ namespace NumberRush3D.Gates
 
         public void Initialize(GameSettings settings, IBattleContext context, ArmyController army)
         {
+            if (_pool != null)
+            {
+                // Already initialised: refresh the context only, never duplicate the pool.
+                _settings = settings;
+                _context = context;
+                _army = army;
+                return;
+            }
+
             _settings = settings;
             _context = context;
             _army = army;
@@ -211,22 +220,22 @@ namespace NumberRush3D.Gates
             GateRowDefinition row = NextRow();
             float halfWidth = _settings.TrackHalfWidth;
 
-            SpawnHalf(row.left, -halfWidth * 0.5f, halfWidth, z);
-            SpawnHalf(row.right, halfWidth * 0.5f, halfWidth, z);
+            SpawnHalf(row.left, -halfWidth * 0.5f, halfWidth, z, false);
+            SpawnHalf(row.right, halfWidth * 0.5f, halfWidth, z, true);
 
             int extra = Mathf.Clamp(_settings.gateExtraGates, 0, 3);
             for (int i = 1; i <= extra; i++)
             {
                 GateRowDefinition clusterRow = NextRow();
                 float clusterZ = z + i * clusterSpacing;
-                SpawnHalf(clusterRow.left, -halfWidth * 0.5f, halfWidth, clusterZ);
-                SpawnHalf(clusterRow.right, halfWidth * 0.5f, halfWidth, clusterZ);
+                SpawnHalf(clusterRow.left, -halfWidth * 0.5f, halfWidth, clusterZ, false);
+                SpawnHalf(clusterRow.right, halfWidth * 0.5f, halfWidth, clusterZ, true);
             }
 
             RowsSpawned++;
         }
 
-        private void SpawnHalf(GateChoice choice, float centerX, float width, float z)
+        private void SpawnHalf(GateChoice choice, float centerX, float width, float z, bool isRightHalf)
         {
             NumberGate gate = _pool.Get(new Vector3(centerX, 0f, z), Quaternion.identity);
             if (gate == null)
@@ -236,7 +245,7 @@ namespace NumberRush3D.Gates
 
             gate.Fired -= HandleGateFired;
             gate.Fired += HandleGateFired;
-            gate.Configure(choice, centerX, width, z, _context, _army);
+            gate.Configure(choice, centerX, width, z, _context, _army, isRightHalf);
             _live.Add(gate);
         }
 
